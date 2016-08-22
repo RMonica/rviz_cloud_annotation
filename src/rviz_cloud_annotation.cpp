@@ -90,6 +90,12 @@ class RVizCloudAnnotation
     m_nh.param<double>(PARAM_NAME_POINT_SIZE,param_double,PARAM_DEFAULT_POINT_SIZE);
     m_point_size = param_double;
 
+    m_nh.param<double>(PARAM_NAME_LABEL_SIZE,param_double,PARAM_DEFAULT_LABEL_SIZE);
+    m_label_size = param_double;
+
+    m_nh.param<double>(PARAM_NAME_CONTROL_LABEL_SIZE,param_double,PARAM_DEFAULT_CONTROL_LABEL_SIZE);
+    m_control_label_size = param_double;
+
     m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC,param_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC);
     m_set_edit_mode_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetEditMode,this);
 
@@ -277,6 +283,8 @@ class RVizCloudAnnotation
 
   std::string m_frame_id;
   float m_point_size;
+  float m_label_size;
+  float m_control_label_size;
 };
 
 int main(int argc, char** argv)
