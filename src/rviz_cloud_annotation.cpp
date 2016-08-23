@@ -16,41 +16,11 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/conversions.h>
+#include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/common/colors.h>
 
-namespace vm = visualization_msgs;
-
-void processFeedback( const vm::InteractiveMarkerFeedbackConstPtr &feedback )
-{
-  uint8_t type = feedback->event_type;
-
-  if( type == vm::InteractiveMarkerFeedback::BUTTON_CLICK ||
-      type == vm::InteractiveMarkerFeedback::MOUSE_DOWN ||
-      type == vm::InteractiveMarkerFeedback::MOUSE_UP )
-  {
-    const char* type_str = (type == vm::InteractiveMarkerFeedback::BUTTON_CLICK ? "button click" :
-                            (type == vm::InteractiveMarkerFeedback::MOUSE_DOWN ? "mouse down" : "mouse up"));
-
-    if( feedback->mouse_point_valid )
-    {
-      ROS_INFO( "%s at %f, %f, %f in frame %s",
-                type_str,
-                feedback->mouse_point.x, feedback->mouse_point.y, feedback->mouse_point.z,
-                feedback->header.frame_id.c_str() );
-    }
-    else
-    {
-      ROS_INFO( "%s", type_str );
-    }
-  }
-  else if( type == vm::InteractiveMarkerFeedback::POSE_UPDATE )
-  {
-    ROS_INFO_STREAM( feedback->marker_name << " is now at "
-                     << feedback->pose.position.x << ", " << feedback->pose.position.y
-                     << ", " << feedback->pose.position.z );
-  }
-  else
-    ROS_INFO("unknown type: %u",(unsigned int)(type));
-}
+// boost
+#include <boost/lexical_cast.hpp>
 
 class RVizCloudAnnotation
 {
@@ -59,18 +29,32 @@ class RVizCloudAnnotation
   typedef visualization_msgs::Marker Marker;
   typedef interactive_markers::InteractiveMarkerServer InteractiveMarkerServer;
   typedef boost::shared_ptr<interactive_markers::InteractiveMarkerServer> InteractiveMarkerServerPtr;
+  typedef visualization_msgs::InteractiveMarkerFeedback InteractiveMarkerFeedback;
+  typedef visualization_msgs::InteractiveMarkerFeedbackPtr InteractiveMarkerFeedbackPtr;
+  typedef visualization_msgs::InteractiveMarkerFeedbackConstPtr InteractiveMarkerFeedbackConstPtr;
   typedef pcl::PointXYZRGBNormal PointXYZRGBNormal;
   typedef pcl::PointCloud<PointXYZRGBNormal> PointXYZRGBNormalCloud;
   typedef pcl::PointXYZL PointXYZL;
   typedef pcl::PointCloud<PointXYZL> PointXYZLCloud;
   typedef pcl::PointXYZI PointXYZI;
   typedef pcl::PointCloud<PointXYZI> PointXYZICloud;
+  typedef pcl::KdTreeFLANN<PointXYZRGBNormal> KdTree;
 
   typedef uint64_t uint64;
   typedef uint32_t uint32;
   typedef int32_t int32;
+  typedef uint8_t uint8;
   typedef std::vector<uint32> Uint32Vector;
+  typedef std::vector<uint64> Uint64Vector;
+  typedef std::vector<Uint64Vector> Uint64VectorVector;
   typedef std::vector<float> FloatVector;
+
+  enum EditMode
+  {
+    EDIT_MODE_NONE,
+    EDIT_MODE_LABELS,
+    EDIT_MODE_COLOR_PICKER,
+  };
 
   RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   {
@@ -82,7 +66,11 @@ class RVizCloudAnnotation
 
     m_nh.param<std::string>(PARAM_NAME_CLOUD_FILENAME,param_string,PARAM_DEFAULT_CLOUD_FILENAME);
     m_cloud = PointXYZRGBNormalCloud::Ptr(new PointXYZRGBNormalCloud);
-    LoadCloud(param_string,*m_cloud,m_labels,m_intensities);
+    LoadCloud(param_string,*m_cloud);
+    m_kdtree = KdTree::Ptr(new KdTree);
+    m_kdtree->setInputCloud(m_cloud);
+    m_control_points_assoc.resize(m_cloud->size(),0);
+    m_labels_assoc.resize(m_cloud->size(),0);
 
     m_nh.param<std::string>(PARAM_NAME_FRAME_ID,m_frame_id,PARAM_DEFAULT_FRAME_ID);
 
@@ -101,18 +89,15 @@ class RVizCloudAnnotation
     m_nh.param<std::string>(PARAM_NAME_SET_CURRENT_LABEL_TOPIC,param_string,PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC);
     m_set_current_label_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetCurrentLabel,this);
 
-    m_interactive_marker_server->insert(CloudToMarker(*m_cloud,false),&processFeedback);
-    m_interactive_marker_server->insert(CloudToCubeMarker(*m_cloud,false),&processFeedback);
-    m_interactive_marker_server->applyChanges();
+    SendCloudMarker(true);
+    //m_interactive_marker_server->insert(CloudToCubeMarker(*m_cloud,false),&processFeedback);
 
     m_current_label = 1;
   }
 
-  void LoadCloud(const std::string & filename,PointXYZRGBNormalCloud & cloud,Uint32Vector & labels,FloatVector & intensities)
+  void LoadCloud(const std::string & filename,PointXYZRGBNormalCloud & cloud)
   {
-    labels.clear();
     cloud.clear();
-    intensities.clear();
 
     pcl::PCLPointCloud2 cloud2;
 
@@ -123,49 +108,58 @@ class RVizCloudAnnotation
     }
 
     pcl::fromPCLPointCloud2(cloud2,cloud);
-    const uint64 cloud_size = cloud.size();
-    labels.resize(cloud_size,0);
-    intensities.resize(cloud_size,0.0);
+  }
 
-    bool has_label = false;
-    for (uint64 i = 0; i < cloud2.fields.size(); i++)
-      if (cloud2.fields[i].name == "label")
-      {
-        has_label = true;
-        break;
-      }
-
-    bool has_intensity = false;
-    for (uint64 i = 0; i < cloud2.fields.size(); i++)
-      if (cloud2.fields[i].name == "intensity")
-      {
-        has_intensity = true;
-        break;
-      }
-
-    if (has_label)
+  void onClickOnCloud(const InteractiveMarkerFeedbackConstPtr & feedback_ptr)
+  {
+    if (m_edit_mode == EDIT_MODE_NONE)
     {
-      ROS_INFO("rviz_cloud_annotation: previous labels were found in cloud.");
-      PointXYZLCloud labels_cloud;
-      pcl::fromPCLPointCloud2(cloud2,labels_cloud);
-
-      for (uint64 i = 0; i < cloud_size; i++)
-      {
-        labels[i] = labels_cloud[i].label;
-        if (labels[i] != 0)
-          intensities[i] = 1.0;
-      }
+      ROS_WARN("rviz_cloud_annotation: received spurious click while not in edit mode.");
+      return;
     }
 
-    if (has_label && has_intensity)
-    {
-      ROS_INFO("rviz_cloud_annotation: previous intensities were found in cloud.");
-      PointXYZICloud intensity_cloud;
-      pcl::fromPCLPointCloud2(cloud2,intensity_cloud);
+    const InteractiveMarkerFeedback & feedback = *feedback_ptr;
+    uint8 type = feedback.event_type;
 
-      for (uint64 i = 0; i < cloud_size; i++)
-        if (labels[i] != 0)
-          intensities[i] = intensity_cloud[i].intensity;
+    if (type != InteractiveMarkerFeedback::BUTTON_CLICK)
+      return; // not a click
+
+    ROS_INFO("rviz_cloud_annotation: click.");
+
+    if (!feedback.mouse_point_valid)
+      return; // invalid point
+
+    PointXYZRGBNormal click_pt;
+    click_pt.x = feedback.mouse_point.x;
+    click_pt.y = feedback.mouse_point.y;
+    click_pt.z = feedback.mouse_point.z;
+
+    ROS_INFO("rviz_cloud_annotation: click at: %f %f %f",float(click_pt.x),float(click_pt.y),float(click_pt.z));
+
+    std::vector<int> idxs(1);
+    std::vector<float> dsts(1);
+
+    if (m_kdtree->nearestKSearch(click_pt,1,idxs,dsts) <= 0)
+    {
+      ROS_WARN("rviz_cloud_annotation: point was clicked, but no nearest cloud point found.");
+      return;
+    }
+
+    const uint64 idx = idxs[0];
+    const float dst = std::sqrt(dsts[0]);
+
+    ROS_INFO("rviz_cloud_annotation: clicked on point: %u (accuracy: %f)",(unsigned int)(idx),float(dst));
+    ROS_INFO("rviz_cloud_annotation: setting label %u to point %u",(unsigned int)(m_current_label),(unsigned int)(idx));
+
+    const uint64 prev_label = SetControlPoint(idx,m_current_label);
+    if (prev_label != m_current_label)
+    {
+      Uint64Vector affected_markers;
+      if (prev_label != 0)
+        affected_markers.push_back(prev_label);
+      if (m_current_label != 0)
+        affected_markers.push_back(m_current_label);
+      SendControlPointsMarker(affected_markers,true);
     }
   }
 
@@ -177,21 +171,83 @@ class RVizCloudAnnotation
 
   void onSetEditMode(const std_msgs::UInt32 & msg)
   {
-    const bool edit = (msg.data ? true : false);
+    const uint64 i = msg.data;
+    bool send_cloud = false;
+    switch (i)
+    {
+      case 0:
+        if (m_edit_mode != EDIT_MODE_NONE)
+          send_cloud = true;
+        m_edit_mode = EDIT_MODE_NONE;
+        break;
+      case 1:
+        if (m_edit_mode == EDIT_MODE_NONE)
+          send_cloud = true;
+        m_edit_mode = EDIT_MODE_LABELS;
+        break;
+      case 2:
+        if (m_edit_mode == EDIT_MODE_NONE)
+          send_cloud = true;
+        m_edit_mode = EDIT_MODE_COLOR_PICKER;
+        break;
+      default:
+        ROS_ERROR("rviz_cloud_annotation: unsupported edit mode %u received.",(unsigned int)(i));
+        break;
+    }
 
-    m_interactive_marker_server->insert(CloudToMarker(*m_cloud,edit),&processFeedback);
-    m_interactive_marker_server->insert(CloudToCubeMarker(*m_cloud,edit),&processFeedback);
-    m_interactive_marker_server->applyChanges();
+    if (send_cloud)
+    {
+      SendCloudMarker(false);
+      SendControlPointsMarker(RangeUint64(1,m_control_points.size() + 1),true);
+    }
   }
 
-  InteractiveMarker CloudToCubeMarker(const PointXYZRGBNormalCloud & cloud,const bool interactive)
+  Uint64Vector RangeUint64(const uint64 start,const uint64 end) const
   {
-    const uint64 cloud_size = cloud.size();
+    Uint64Vector result(end - start);
+    for (uint64 i = start; i < end; i++)
+      result[i - start] = i;
+    return result;
+  }
+
+  void SendCloudMarker(const bool apply)
+  {
+    m_interactive_marker_server->insert(
+      CloudToMarker(*m_cloud,(m_edit_mode != EDIT_MODE_NONE)),
+      boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+
+    if (apply)
+      m_interactive_marker_server->applyChanges();
+  }
+
+  void SendControlPointsMarker(const Uint64Vector & changed_control_points,const bool apply)
+  {
+    const uint64 changed_size = changed_control_points.size();
+    for (uint64 i = 0; i < changed_size; i++)
+    {
+      const uint64 label = changed_control_points[i];
+      const Uint64Vector & control_points = m_control_points[label - 1];
+      m_interactive_marker_server->insert(
+        ControlPointsToMarker(*m_cloud,control_points,label,(m_edit_mode != EDIT_MODE_NONE)),
+        boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+    }
+
+    if (apply)
+      m_interactive_marker_server->applyChanges();
+  }
+
+  InteractiveMarker ControlPointsToMarker(const PointXYZRGBNormalCloud & cloud,
+                                          const Uint64Vector & control_points,
+                                          const uint64 label,const bool interactive)
+  {
+    const uint64 control_size = control_points.size();
 
     InteractiveMarker marker;
     marker.header.frame_id = m_frame_id;
-    marker.name = "cubes";
+    marker.name = std::string("control_points_") + boost::lexical_cast<std::string>(label);
     marker.description = "";
+
+    const pcl::RGB color = pcl::GlasbeyLUT::at((label - 1) % 256);
 
     marker.pose.position.x = 0.0;
     marker.pose.position.y = 0.0;
@@ -199,26 +255,26 @@ class RVizCloudAnnotation
 
     Marker cloud_marker;
     cloud_marker.type = Marker::LINE_LIST;
-    cloud_marker.scale.x = m_point_size / 4.0;
-    cloud_marker.scale.y = m_point_size / 4.0;
-    cloud_marker.scale.z = m_point_size / 4.0;
-    cloud_marker.color.r = 0.0;
-    cloud_marker.color.g = 0.0;
-    cloud_marker.color.b = 0.0;
+    cloud_marker.scale.x = m_control_label_size / 2.0;
+    cloud_marker.scale.y = 0.0;
+    cloud_marker.scale.z = 0.0;
+    cloud_marker.color.r = float(color.r) / 255.0;
+    cloud_marker.color.g = float(color.g) / 255.0;
+    cloud_marker.color.b = float(color.b) / 255.0;
     cloud_marker.color.a = 1.0;
 
-    cloud_marker.points.resize(cloud_size * 2);
-    for(uint64 i = 0; i < cloud_size; i++)
+    cloud_marker.points.resize(control_size * 2);
+    for(uint64 i = 0; i < control_size; i++)
     {
-      const PointXYZRGBNormal & pt = cloud[i];
+      const PointXYZRGBNormal & pt = cloud[control_points[i]];
 
       cloud_marker.points[i * 2].x = pt.x;
       cloud_marker.points[i * 2].y = pt.y;
       cloud_marker.points[i * 2].z = pt.z;
 
-      cloud_marker.points[i * 2 + 1].x = pt.x + pt.normal_x * 0.01;
-      cloud_marker.points[i * 2 + 1].y = pt.y + pt.normal_y * 0.01;
-      cloud_marker.points[i * 2 + 1].z = pt.z + pt.normal_z * 0.01;
+      cloud_marker.points[i * 2 + 1].x = pt.x + pt.normal_x * m_control_label_size;
+      cloud_marker.points[i * 2 + 1].y = pt.y + pt.normal_y * m_control_label_size;
+      cloud_marker.points[i * 2 + 1].z = pt.z + pt.normal_z * m_control_label_size;
     }
 
     visualization_msgs::InteractiveMarkerControl points_control;
@@ -282,12 +338,50 @@ class RVizCloudAnnotation
     return marker;
   }
 
+  // returns the old label
+  uint64 SetControlPoint(const uint64 point_id,const uint64 label)
+  {
+    uint64 prev_label = m_control_points_assoc[point_id];
+
+    if (prev_label == label)
+      return prev_label; // nothing to do
+
+    if (prev_label != 0)
+    {
+      Uint64Vector & control_point_indices = m_control_points[prev_label - 1];
+      for (Uint64Vector::iterator iter = control_point_indices.begin(); iter != control_point_indices.end(); ++iter)
+        if (*iter == point_id)
+        {
+          control_point_indices.erase(iter);
+          break;
+        }
+    }
+
+    m_control_points_assoc[point_id] = label;
+
+    if (label == 0)
+      return prev_label; // nothing more to do: control point was removed
+
+    if (m_control_points.size() < label)
+      m_control_points.resize(label);
+
+    Uint64Vector & control_point_indices = m_control_points[label - 1];
+    control_point_indices.push_back(point_id);
+
+    return prev_label;
+  }
+
   private:
   ros::NodeHandle & m_nh;
   InteractiveMarkerServerPtr m_interactive_marker_server;
   PointXYZRGBNormalCloud::Ptr m_cloud;
-  Uint32Vector m_labels;
-  FloatVector m_intensities;
+
+  Uint32Vector m_control_points_assoc;
+  Uint32Vector m_labels_assoc;
+  // control points for each label
+  Uint64VectorVector m_control_points;
+
+  KdTree::Ptr m_kdtree;
 
   ros::Subscriber m_set_edit_mode_sub;
   ros::Subscriber m_set_current_label_sub;
@@ -298,6 +392,7 @@ class RVizCloudAnnotation
   float m_control_label_size;
 
   uint64 m_current_label;
+  EditMode m_edit_mode;
 };
 
 int main(int argc, char** argv)
