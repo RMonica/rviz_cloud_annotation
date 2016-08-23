@@ -21,7 +21,16 @@
 #define PARAM_NAME_CONTROL_LABEL_SIZE     "control_label_size"
 #define PARAM_DEFAULT_CONTROL_LABEL_SIZE  (0.02)
 
-#define PARAM_NAME_SET_EDIT_MODE_TOPIC     "set_edit_mode_topic"
+#define PARAM_NAME_SET_EDIT_MODE_TOPIC     "rviz_cloud_annotation/set_edit_mode_topic"
 #define PARAM_DEFAULT_SET_EDIT_MODE_TOPIC  "/rviz_cloud_annotation/set_edit_mode"
+
+#define PARAM_NAME_COLORS_COLS_PER_PAGE    "rviz_cloud_annotation/color_columns_per_page"
+#define PARAM_DEFAULT_COLOR_COLS_PER_PAGE  (10)
+
+#define PARAM_NAME_COLORS_ROWS_PER_PAGE    "rviz_cloud_annotation/color_rows_per_page"
+#define PARAM_DEFAULT_COLOR_ROWS_PER_PAGE  (2)
+
+#define PARAM_NAME_SET_CURRENT_LABEL_TOPIC    "rviz_cloud_annotation/set_current_label_topic"
+#define PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC "/rviz_cloud_annotation/set_current_label"
 
 #endif // RVIZ_CLOUD_ANNOTATION_H

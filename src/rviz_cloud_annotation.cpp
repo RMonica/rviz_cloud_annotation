@@ -78,7 +78,6 @@ class RVizCloudAnnotation
     double param_double;
 
     m_nh.param<std::string>(PARAM_NAME_UPDATE_TOPIC,param_string,PARAM_DEFAULT_UPDATE_TOPIC);
-    ROS_INFO("rviz_cloud_annotation: publishing to topic: %s",param_string.c_str());
     m_interactive_marker_server = InteractiveMarkerServerPtr(new InteractiveMarkerServer(param_string));
 
     m_nh.param<std::string>(PARAM_NAME_CLOUD_FILENAME,param_string,PARAM_DEFAULT_CLOUD_FILENAME);
@@ -99,9 +98,14 @@ class RVizCloudAnnotation
     m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC,param_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC);
     m_set_edit_mode_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetEditMode,this);
 
+    m_nh.param<std::string>(PARAM_NAME_SET_CURRENT_LABEL_TOPIC,param_string,PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC);
+    m_set_current_label_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetCurrentLabel,this);
+
     m_interactive_marker_server->insert(CloudToMarker(*m_cloud,false),&processFeedback);
     m_interactive_marker_server->insert(CloudToCubeMarker(*m_cloud,false),&processFeedback);
     m_interactive_marker_server->applyChanges();
+
+    m_current_label = 1;
   }
 
   void LoadCloud(const std::string & filename,PointXYZRGBNormalCloud & cloud,Uint32Vector & labels,FloatVector & intensities)
@@ -163,6 +167,12 @@ class RVizCloudAnnotation
         if (labels[i] != 0)
           intensities[i] = intensity_cloud[i].intensity;
     }
+  }
+
+  void onSetCurrentLabel(const std_msgs::UInt32 & msg)
+  {
+    m_current_label = msg.data;
+    ROS_INFO("rviz_cloud_annotation: label is now: %u",(unsigned int)(m_current_label));
   }
 
   void onSetEditMode(const std_msgs::UInt32 & msg)
@@ -280,11 +290,14 @@ class RVizCloudAnnotation
   FloatVector m_intensities;
 
   ros::Subscriber m_set_edit_mode_sub;
+  ros::Subscriber m_set_current_label_sub;
 
   std::string m_frame_id;
   float m_point_size;
   float m_label_size;
   float m_control_label_size;
+
+  uint64 m_current_label;
 };
 
 int main(int argc, char** argv)
