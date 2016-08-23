@@ -82,10 +82,12 @@ namespace rviz_cloud_annotation
 
       m_prev_page_button = new QPushButton("<<",this);
       m_prev_page_button->setShortcut(QKeySequence("PgDown"));
+      m_prev_page_button->setMinimumWidth(2);
       connect(m_prev_page_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onPageDown);
       page_shift_layout->addWidget(m_prev_page_button);
       m_next_page_button = new QPushButton(">>",this);
       m_next_page_button->setShortcut(QKeySequence("PgUp"));
+      m_next_page_button->setMinimumWidth(2);
       connect(m_next_page_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onPageUp);
       page_shift_layout->addWidget(m_next_page_button);
       m_current_page_label = new QLabel("0/0",this);
@@ -93,10 +95,12 @@ namespace rviz_cloud_annotation
 
       m_prev_label_button = new QPushButton("-",this);
       m_prev_label_button->setShortcut(QKeySequence("-"));
+      m_prev_label_button->setMinimumWidth(2);
       connect(m_prev_label_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onMinusLabel);
       page_shift_layout->addWidget(m_prev_label_button);
       m_next_label_button = new QPushButton("+",this);
       m_next_label_button->setShortcut(QKeySequence("+"));
+      m_next_label_button->setMinimumWidth(2);
       connect(m_next_label_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onPlusLabel);
       page_shift_layout->addWidget(m_next_label_button);
     }
