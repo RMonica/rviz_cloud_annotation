@@ -177,42 +177,7 @@ class RVizCloudAnnotation
     Restore(filename);
   }
 
-  void Restore(const std::string & filename)
-  {
-    std::ifstream ifile(filename.c_str());
-    if (!ifile)
-    {
-      ROS_ERROR("rviz_cloud_annotation: could not open file: %s",filename.c_str());
-      return;
-    }
-
-    ROS_INFO("rviz_cloud_annotation: loading file: %s",filename.c_str());
-
-    RVizCloudAnnotationPoints::Ptr maybe_new_annotation;
-    try
-    {
-      maybe_new_annotation = RVizCloudAnnotationPoints::Deserialize(ifile);
-    }
-    catch (const RVizCloudAnnotationPoints::IOE & e)
-    {
-      ROS_ERROR("rviz_cloud_annotation: could not load file %s, reason: %s.",filename.c_str(),e.description.c_str());
-      return;
-    }
-
-    if (maybe_new_annotation->GetCloudSize() != m_annotation->GetCloudSize())
-    {
-      const uint new_size = maybe_new_annotation->GetCloudSize();
-      const uint old_size = m_annotation->GetCloudSize();
-      ROS_ERROR("rviz_cloud_annotation: file was created for a cloud of size %u, but it is %u. Load operation aborted.",
-                new_size,old_size);
-    }
-
-    ClearControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),false);
-    m_annotation = maybe_new_annotation;
-    SendControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),true);
-
-    ROS_INFO("rviz_cloud_annotation: file loaded.");
-  }
+  void Restore(const std::string & filename);
 
   void onClear(const std_msgs::UInt32 & /*label_msg*/)
   {
@@ -259,29 +224,45 @@ class RVizCloudAnnotation
     const uint64 idx = idxs[0];
     const float dst = std::sqrt(dsts[0]);
 
-    const uint64 actual_label = (m_edit_mode == EDIT_MODE_CONTROL_POINT) ? m_current_label : 0;
-
     ROS_INFO("rviz_cloud_annotation: clicked on point: %u (accuracy: %f)",(unsigned int)(idx),float(dst));
-    ROS_INFO("rviz_cloud_annotation: setting label %u to point %u",(unsigned int)(actual_label),(unsigned int)(idx));
 
-    const Uint64Vector changed_labels = m_annotation->SetControlPoint(idx,actual_label);
-    SendControlPointsMarker(changed_labels,true);
-  }
-
-  void onSetCurrentLabel(const std_msgs::UInt32 & msg)
-  {
-    if (m_current_label != msg.data)
+    if (m_edit_mode == EDIT_MODE_CONTROL_POINT)
     {
-      m_current_label = msg.data;
-      ROS_INFO("rviz_cloud_annotation: label is now: %u",(unsigned int)(m_current_label));
-      m_set_current_label_pub.publish(msg);
+      ROS_INFO("rviz_cloud_annotation: setting label %u to point %u",(unsigned int)(m_current_label),(unsigned int)(idx));
+      const Uint64Vector changed_labels = m_annotation->SetControlPoint(idx,m_current_label);
+      SendControlPointsMarker(changed_labels,true);
+    }
+    else if (m_edit_mode == EDIT_MODE_ERASER)
+    {
+      ROS_INFO("rviz_cloud_annotation: eraser: erasing label from point %u",(unsigned int)(idx));
+      const Uint64Vector changed_labels = m_annotation->SetControlPoint(idx,0);
+      SendControlPointsMarker(changed_labels,true);
+    }
+    else if (m_edit_mode == EDIT_MODE_COLOR_PICKER)
+    {
+      const uint64 label = m_annotation->GetLabelForPoint(idx);
+      if (label ==  0)
+        ROS_WARN("rviz_cloud_annotation: color picker: point %u has no label yet.",uint(idx));
+      else
+        SetCurrentLabel(label);
     }
   }
 
-  void onSetEditMode(const std_msgs::UInt32 & msg)
+  void SetCurrentLabel(const uint64 label)
   {
-    const uint64 new_edit_mode = msg.data;
+    if (m_current_label == label)
+      return;
 
+    m_current_label = label;
+    ROS_INFO("rviz_cloud_annotation: label is now: %u",(unsigned int)(m_current_label));
+
+    std_msgs::UInt32 msg;
+    msg.data = label;
+    m_set_current_label_pub.publish(msg);
+  }
+
+  void SetEditMode(const uint64 new_edit_mode)
+  {
     if (m_edit_mode == new_edit_mode)
       return; // nothing to do
 
@@ -318,6 +299,9 @@ class RVizCloudAnnotation
     ROS_INFO("rviz_cloud_annotation: edit mode is now: %s",info_string);
 
     m_edit_mode = new_edit_mode;
+
+    std_msgs::UInt32 msg;
+    msg.data = m_edit_mode;
     m_set_edit_mode_pub.publish(msg);
 
     if (send_cloud)
@@ -325,6 +309,16 @@ class RVizCloudAnnotation
       SendCloudMarker(false);
       SendControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),true);
     }
+  }
+
+  void onSetCurrentLabel(const std_msgs::UInt32 & msg)
+  {
+    SetCurrentLabel(msg.data);
+  }
+
+  void onSetEditMode(const std_msgs::UInt32 & msg)
+  {
+    SetEditMode(msg.data);
   }
 
   Uint64Vector RangeUint64(const uint64 start,const uint64 end) const

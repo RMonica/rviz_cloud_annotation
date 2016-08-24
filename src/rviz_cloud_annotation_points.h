@@ -49,7 +49,10 @@ class RVizCloudAnnotationPoints
 
   //const Uint64VectorVector & GetControlPoints() const {return m_control_points; }
   const Uint64Vector & GetControlPointList(const uint64 label) const {return m_control_points[label - 1]; }
-  const Uint64Vector GetLabelPointList(const uint64 label) const;
+  Uint64Vector GetLabelPointList(const uint64 label) const;
+
+  // 0 if none
+  uint64 GetLabelForPoint(const uint64 idx) const {return m_labels_assoc[idx]; }
 
   uint64 GetMaxLabel() const {return m_control_points.size() + 1; }
   uint64 GetCloudSize() const {return m_cloud_size; }

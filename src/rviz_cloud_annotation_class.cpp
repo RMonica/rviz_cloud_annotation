@@ -151,3 +151,40 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::CloudToMarker(const 
 
   return marker;
 }
+
+void RVizCloudAnnotation::Restore(const std::string & filename)
+{
+  std::ifstream ifile(filename.c_str());
+  if (!ifile)
+  {
+    ROS_ERROR("rviz_cloud_annotation: could not open file: %s",filename.c_str());
+    return;
+  }
+
+  ROS_INFO("rviz_cloud_annotation: loading file: %s",filename.c_str());
+
+  RVizCloudAnnotationPoints::Ptr maybe_new_annotation;
+  try
+  {
+    maybe_new_annotation = RVizCloudAnnotationPoints::Deserialize(ifile);
+  }
+  catch (const RVizCloudAnnotationPoints::IOE & e)
+  {
+    ROS_ERROR("rviz_cloud_annotation: could not load file %s, reason: %s.",filename.c_str(),e.description.c_str());
+    return;
+  }
+
+  if (maybe_new_annotation->GetCloudSize() != m_annotation->GetCloudSize())
+  {
+    const uint new_size = maybe_new_annotation->GetCloudSize();
+    const uint old_size = m_annotation->GetCloudSize();
+    ROS_ERROR("rviz_cloud_annotation: file was created for a cloud of size %u, but it is %u. Load operation aborted.",
+              new_size,old_size);
+  }
+
+  ClearControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),false);
+  m_annotation = maybe_new_annotation;
+  SendControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),true);
+
+  ROS_INFO("rviz_cloud_annotation: file loaded.");
+}
