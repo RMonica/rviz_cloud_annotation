@@ -1,0 +1,103 @@
+#include "rviz_cloud_annotation_class.h"
+
+RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarker(const PointXYZRGBNormalCloud & cloud,
+                                        const Uint64Vector & control_points,
+                                        const uint64 label,const bool interactive)
+{
+  const uint64 control_size = control_points.size();
+
+  InteractiveMarker marker;
+  marker.header.frame_id = m_frame_id;
+  marker.name = std::string("control_points_") + boost::lexical_cast<std::string>(label);
+  marker.description = "";
+
+  const pcl::RGB color = pcl::GlasbeyLUT::at((label - 1) % 256);
+
+  marker.pose.position.x = 0.0;
+  marker.pose.position.y = 0.0;
+  marker.pose.position.z = 0.0;
+
+  Marker cloud_marker;
+  cloud_marker.type = Marker::LINE_LIST;
+  cloud_marker.scale.x = m_control_label_size / 2.0;
+  cloud_marker.scale.y = 0.0;
+  cloud_marker.scale.z = 0.0;
+  cloud_marker.color.r = float(color.r) / 255.0;
+  cloud_marker.color.g = float(color.g) / 255.0;
+  cloud_marker.color.b = float(color.b) / 255.0;
+  cloud_marker.color.a = 1.0;
+
+  cloud_marker.points.resize(control_size * 2);
+  for(uint64 i = 0; i < control_size; i++)
+  {
+    const PointXYZRGBNormal & pt = cloud[control_points[i]];
+
+    cloud_marker.points[i * 2].x = pt.x;
+    cloud_marker.points[i * 2].y = pt.y;
+    cloud_marker.points[i * 2].z = pt.z;
+
+    cloud_marker.points[i * 2 + 1].x = pt.x + pt.normal_x * m_control_label_size;
+    cloud_marker.points[i * 2 + 1].y = pt.y + pt.normal_y * m_control_label_size;
+    cloud_marker.points[i * 2 + 1].z = pt.z + pt.normal_z * m_control_label_size;
+  }
+
+  visualization_msgs::InteractiveMarkerControl points_control;
+  points_control.always_visible = true;
+  points_control.interaction_mode = interactive ?
+    int32(visualization_msgs::InteractiveMarkerControl::BUTTON) :
+    int32(visualization_msgs::InteractiveMarkerControl::NONE);
+  points_control.markers.push_back(cloud_marker);
+  marker.controls.push_back(points_control);
+
+  return marker;
+}
+
+RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::CloudToMarker(const PointXYZRGBNormalCloud & cloud,const bool interactive)
+{
+  const uint64 cloud_size = cloud.size();
+
+  InteractiveMarker marker;
+  marker.header.frame_id = m_frame_id;
+  marker.name = "cloud";
+  marker.description = "";
+
+  marker.pose.position.x = 0.0;
+  marker.pose.position.y = 0.0;
+  marker.pose.position.z = 0.0;
+
+  Marker cloud_marker;
+  cloud_marker.type = Marker::POINTS;
+  cloud_marker.scale.x = m_point_size;
+  cloud_marker.scale.y = m_point_size;
+  cloud_marker.scale.z = m_point_size;
+  cloud_marker.color.r = 1.0;
+  cloud_marker.color.g = 1.0;
+  cloud_marker.color.b = 1.0;
+  cloud_marker.color.a = 1.0;
+
+  cloud_marker.points.resize(cloud_size);
+  cloud_marker.colors.resize(cloud_size);
+  for(uint64 i = 0; i < cloud_size; i++)
+  {
+    const PointXYZRGBNormal & pt = cloud[i];
+
+    cloud_marker.points[i].x = pt.x;
+    cloud_marker.points[i].y = pt.y;
+    cloud_marker.points[i].z = pt.z;
+
+    cloud_marker.colors[i].r = pt.r / 255.0;
+    cloud_marker.colors[i].g = pt.g / 255.0;
+    cloud_marker.colors[i].b = pt.b / 255.0;
+    cloud_marker.colors[i].a = 1.0;
+  }
+
+  visualization_msgs::InteractiveMarkerControl points_control;
+  points_control.always_visible = true;
+  points_control.interaction_mode = interactive ?
+    int32(visualization_msgs::InteractiveMarkerControl::BUTTON) :
+    int32(visualization_msgs::InteractiveMarkerControl::NONE);
+  points_control.markers.push_back(cloud_marker);
+  marker.controls.push_back(points_control);
+
+  return marker;
+}
