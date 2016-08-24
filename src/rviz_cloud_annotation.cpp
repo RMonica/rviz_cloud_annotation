@@ -5,11 +5,13 @@
 #include <stdint.h>
 #include <cmath>
 #include <string>
+#include <fstream>
 
 // ROS
 #include <ros/ros.h>
 #include <interactive_markers/interactive_marker_server.h>
 #include <std_msgs/UInt32.h>
+#include <std_msgs/String.h>
 
 // PCL
 #include <pcl/point_cloud.h>
@@ -45,6 +47,7 @@ class RVizCloudAnnotation
   typedef uint32_t uint32;
   typedef int32_t int32;
   typedef uint8_t uint8;
+  typedef unsigned int uint;
   typedef std::vector<uint32> Uint32Vector;
   typedef std::vector<uint64> Uint64Vector;
   typedef std::vector<Uint64Vector> Uint64VectorVector;
@@ -84,17 +87,31 @@ class RVizCloudAnnotation
     m_nh.param<double>(PARAM_NAME_CONTROL_LABEL_SIZE,param_double,PARAM_DEFAULT_CONTROL_LABEL_SIZE);
     m_control_label_size = param_double;
 
+    m_nh.param<std::string>(PARAM_NAME_SAVE_TOPIC,param_string,PARAM_DEFAULT_SAVE_TOPIC);
+    m_save_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSave,this);
+
+    m_nh.param<std::string>(PARAM_NAME_RESTORE_TOPIC,param_string,PARAM_DEFAULT_RESTORE_TOPIC);
+    m_restore_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onRestore,this);
+
+    m_nh.param<std::string>(PARAM_NAME_CLEAR_TOPIC,param_string,PARAM_DEFAULT_CLEAR_TOPIC);
+    m_clear_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onClear,this);
+
     m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC,param_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC);
     m_set_edit_mode_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetEditMode,this);
 
     m_nh.param<std::string>(PARAM_NAME_SET_CURRENT_LABEL_TOPIC,param_string,PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC);
     m_set_current_label_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetCurrentLabel,this);
 
+    m_nh.param<std::string>(PARAM_NAME_ANNOTATED_CLOUD,m_ann_cloud_filename_out,PARAM_DEFAULT_ANNOTATED_CLOUD);
+    m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_IN,m_annotation_filename_in,PARAM_DEFAULT_ANN_FILENAME_IN);
+    m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_OUT,m_annotation_filename_out,PARAM_DEFAULT_ANN_FILENAME_OUT);
+
     m_current_label = 1;
     m_edit_mode = EDIT_MODE_NONE;
 
     SendCloudMarker(true);
-    //m_interactive_marker_server->insert(CloudToCubeMarker(*m_cloud,false),&processFeedback);
+
+    Restore(m_annotation_filename_in);
   }
 
   void LoadCloud(const std::string & filename,PointXYZRGBNormalCloud & cloud)
@@ -110,6 +127,81 @@ class RVizCloudAnnotation
     }
 
     pcl::fromPCLPointCloud2(cloud2,cloud);
+  }
+
+  void onSave(const std_msgs::String & filename_msg)
+  {
+    std::string filename = filename_msg.data.empty() ? m_annotation_filename_out : filename_msg.data;
+    std::ofstream ofile(filename.c_str());
+    if (!ofile)
+    {
+      ROS_ERROR("rviz_cloud_annotation: could not create file: %s",filename.c_str());
+      return;
+    }
+
+    ROS_INFO("rviz_cloud_annotation: saving file: %s",filename.c_str());
+
+    try
+    {
+      m_annotation->Serialize(ofile);
+    }
+    catch (const RVizCloudAnnotationPoints::IOE & e)
+    {
+      ROS_ERROR("rviz_cloud_annotation: could not save file %s, reason: %s.",filename.c_str(),e.description.c_str());
+      return;
+    }
+
+    ROS_INFO("rviz_cloud_annotation: file saved.");
+  }
+
+  void onRestore(const std_msgs::String & filename_msg)
+  {
+    std::string filename = filename_msg.data.empty() ? m_annotation_filename_out : filename_msg.data;
+    Restore(filename);
+  }
+
+  void Restore(const std::string & filename)
+  {
+    std::ifstream ifile(filename.c_str());
+    if (!ifile)
+    {
+      ROS_ERROR("rviz_cloud_annotation: could not open file: %s",filename.c_str());
+      return;
+    }
+
+    ROS_INFO("rviz_cloud_annotation: loading file: %s",filename.c_str());
+
+    RVizCloudAnnotationPoints::Ptr maybe_new_annotation;
+    try
+    {
+      maybe_new_annotation = RVizCloudAnnotationPoints::Deserialize(ifile);
+    }
+    catch (const RVizCloudAnnotationPoints::IOE & e)
+    {
+      ROS_ERROR("rviz_cloud_annotation: could not load file %s, reason: %s.",filename.c_str(),e.description.c_str());
+      return;
+    }
+
+    if (maybe_new_annotation->GetCloudSize() != m_annotation->GetCloudSize())
+    {
+      const uint new_size = maybe_new_annotation->GetCloudSize();
+      const uint old_size = m_annotation->GetCloudSize();
+      ROS_ERROR("rviz_cloud_annotation: file was created for a cloud of size %u, but it is %u. Load operation aborted.",
+                new_size,old_size);
+    }
+
+    ClearControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),false);
+    m_annotation = maybe_new_annotation;
+    SendControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),true);
+
+    ROS_INFO("rviz_cloud_annotation: file loaded.");
+  }
+
+  void onClear(const std_msgs::UInt32 & /*label_msg*/)
+  {
+    ClearControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),false);
+    m_annotation->Clear();
+    SendControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),true);
   }
 
   void onClickOnCloud(const InteractiveMarkerFeedbackConstPtr & feedback_ptr)
@@ -200,7 +292,7 @@ class RVizCloudAnnotation
     if (send_cloud)
     {
       SendCloudMarker(false);
-      SendControlPointsMarker(RangeUint64(1,m_annotation->GetControlPoints().size() + 1),true);
+      SendControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),true);
     }
   }
 
@@ -217,6 +309,22 @@ class RVizCloudAnnotation
     m_interactive_marker_server->insert(
       CloudToMarker(*m_cloud,(m_edit_mode != EDIT_MODE_NONE)),
       boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+
+    if (apply)
+      m_interactive_marker_server->applyChanges();
+  }
+
+  void ClearControlPointsMarker(const Uint64Vector & indices,const bool apply)
+  {
+    const uint64 changed_size = indices.size();
+    for (uint64 i = 0; i < changed_size; i++)
+    {
+      const uint64 label = indices[i];
+      const Uint64Vector control_points_empty;
+      m_interactive_marker_server->insert(
+        ControlPointsToMarker(*m_cloud,control_points_empty,label,(m_edit_mode != EDIT_MODE_NONE)),
+        boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+    }
 
     if (apply)
       m_interactive_marker_server->applyChanges();
@@ -352,6 +460,10 @@ class RVizCloudAnnotation
   ros::Subscriber m_set_edit_mode_sub;
   ros::Subscriber m_set_current_label_sub;
 
+  ros::Subscriber m_save_sub;
+  ros::Subscriber m_restore_sub;
+  ros::Subscriber m_clear_sub;
+
   std::string m_frame_id;
   float m_point_size;
   float m_label_size;
@@ -359,6 +471,10 @@ class RVizCloudAnnotation
 
   uint64 m_current_label;
   EditMode m_edit_mode;
+
+  std::string m_annotation_filename_in;
+  std::string m_annotation_filename_out;
+  std::string m_ann_cloud_filename_out;
 };
 
 int main(int argc, char** argv)

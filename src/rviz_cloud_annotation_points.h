@@ -33,13 +33,18 @@ class RVizCloudAnnotationPoints
     std::string description;
   };
 
-  static RVizCloudAnnotationPoints Deserialize(std::istream & ifile);
+  static RVizCloudAnnotationPoints::Ptr Deserialize(std::istream & ifile);
   void Serialize(std::ostream & ofile) const;
 
   // returns the old label
   uint64 SetControlPoint(const uint64 point_id,const uint64 label);
 
   const Uint64VectorVector & GetControlPoints() const {return m_control_points; }
+
+  uint64 GetMaxLabel() const {return m_control_points.size() + 1; }
+  uint64 GetCloudSize() const {return m_cloud_size; }
+
+  void Clear();
 
   private:
   Uint32Vector m_control_points_assoc;

@@ -45,4 +45,13 @@
 #define PARAM_NAME_SET_CURRENT_LABEL_TOPIC    "rviz_cloud_annotation/set_current_label_topic"
 #define PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC "/rviz_cloud_annotation/set_current_label"
 
+#define PARAM_NAME_SAVE_TOPIC                 "rviz_cloud_annotation/save_topic"
+#define PARAM_DEFAULT_SAVE_TOPIC              "/rviz_cloud_annotation/save"
+
+#define PARAM_NAME_RESTORE_TOPIC              "rviz_cloud_annotation/restore_topic"
+#define PARAM_DEFAULT_RESTORE_TOPIC           "/rviz_cloud_annotation/restore"
+
+#define PARAM_NAME_CLEAR_TOPIC                "rviz_cloud_annotation/clear_topic"
+#define PARAM_DEFAULT_CLEAR_TOPIC             "/rviz_cloud_annotation/clear"
+
 #endif // RVIZ_CLOUD_ANNOTATION_H

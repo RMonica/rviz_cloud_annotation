@@ -33,6 +33,10 @@ namespace rviz_cloud_annotation
     void onPageUp();
     void onPageDown();
 
+    void onSave();
+    void onRestore();
+    void onClear();
+
     private:
     void SetCurrentEditMode(bool on);
 
@@ -53,6 +57,10 @@ namespace rviz_cloud_annotation
     ros::NodeHandle m_nh;
     ros::Publisher m_set_edit_mode_pub;
     ros::Publisher m_set_current_label_pub;
+
+    ros::Publisher m_save_pub;
+    ros::Publisher m_restore_pub;
+    ros::Publisher m_clear_pub;
 
     QPushButton * m_edit_mode_button;
     QPushButton * m_eraser_button;

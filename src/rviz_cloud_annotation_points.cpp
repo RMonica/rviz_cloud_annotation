@@ -9,6 +9,16 @@ RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size)
   m_cloud_size = cloud_size;
 }
 
+void RVizCloudAnnotationPoints::Clear()
+{
+  m_control_points_assoc.clear();
+  m_labels_assoc.clear();
+  m_control_points.clear();
+
+  m_control_points_assoc.resize(m_cloud_size,0);
+  m_labels_assoc.resize(m_cloud_size,0);
+}
+
 RVizCloudAnnotationPoints::uint64 RVizCloudAnnotationPoints::SetControlPoint(const uint64 point_id,const uint64 label)
 {
   uint64 prev_label = m_control_points_assoc[point_id];
@@ -44,7 +54,7 @@ RVizCloudAnnotationPoints::uint64 RVizCloudAnnotationPoints::SetControlPoint(con
 #define MAGIC_STRING "ANNOTATION"
 #define MAGIC_VERSION (1)
 
-RVizCloudAnnotationPoints RVizCloudAnnotationPoints::Deserialize(std::istream & ifile)
+RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istream & ifile)
 {
   if (!ifile)
     throw IOE("Invalid file stream.");
@@ -69,7 +79,8 @@ RVizCloudAnnotationPoints RVizCloudAnnotationPoints::Deserialize(std::istream & 
   if (!ifile)
     throw IOE("Unexpected EOF while reading cloud size.");
 
-  RVizCloudAnnotationPoints result(cloud_size);
+  RVizCloudAnnotationPoints::Ptr resultptr(new RVizCloudAnnotationPoints(cloud_size));
+  RVizCloudAnnotationPoints & result = *resultptr;
 
   uint64 control_points_size;
   ifile.read((char *)&control_points_size,sizeof(control_points_size));
@@ -113,7 +124,7 @@ RVizCloudAnnotationPoints RVizCloudAnnotationPoints::Deserialize(std::istream & 
     result.m_labels_assoc[i] = label_index;
   }
 
-  return result;
+  return resultptr;
 }
 
 void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile) const

@@ -3,6 +3,10 @@
   <node pkg="rviz_cloud_annotation" type="rviz_cloud_annotation_node" name="rviz_cloud_annotation_node" output="screen">
     <param name="update_topic" type="string" value="/point_cloud" />
     <param name="cloud_filename" type="string" value="$(find rviz_cloud_annotation)/data/map.pcd" />
+
+    <param name="annotation_read_filename" type="string" value="$(find rviz_cloud_annotation)/data/annotation.ann" />
+    <param name="annotation_write_filename" type="string" value="$(find rviz_cloud_annotation)/data/annotation.ann" />
+    <param name="annotation_cloud" type="string" value="$(find rviz_cloud_annotation)/data/annotation.pcd" />
   </node>
 
   <node pkg="rviz" type="rviz" name="annotation_rviz" output="screen" args="-d $(find rviz_cloud_annotation)/rviz/annotation.rviz" required="true" />

@@ -9,12 +9,16 @@
 #include <QBoxLayout>
 #include <QGridLayout>
 #include <QButtonGroup>
+#include <QMessageBox>
 
+// STL
 #include <iostream>
 #include <string>
 #include <sstream>
 
+// ROS
 #include <std_msgs/UInt32.h>
+#include <std_msgs/String.h>
 
 // PCL
 #include <pcl/common/colors.h>
@@ -56,9 +60,35 @@ namespace rviz_cloud_annotation
 
       m_nh.param<std::string>(PARAM_NAME_SET_CURRENT_LABEL_TOPIC,temp_string,PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC);
       m_set_current_label_pub = m_nh.advertise<std_msgs::UInt32>(temp_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_SAVE_TOPIC,temp_string,PARAM_DEFAULT_SAVE_TOPIC);
+      m_save_pub = m_nh.advertise<std_msgs::String>(temp_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_RESTORE_TOPIC,temp_string,PARAM_DEFAULT_RESTORE_TOPIC);
+      m_restore_pub = m_nh.advertise<std_msgs::String>(temp_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_CLEAR_TOPIC,temp_string,PARAM_DEFAULT_CLEAR_TOPIC);
+      m_clear_pub = m_nh.advertise<std_msgs::UInt32>(temp_string,1);
     }
 
     QBoxLayout * main_layout = new QBoxLayout(QBoxLayout::TopToBottom,this);
+
+    {
+      QBoxLayout * file_layout = new QBoxLayout(QBoxLayout::LeftToRight);
+      main_layout->addLayout(file_layout);
+
+      QPushButton * save_button = new QPushButton("Save",this);
+      file_layout->addWidget(save_button);
+      connect(save_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onSave,Qt::QueuedConnection);
+
+      QPushButton * restore_button = new QPushButton("Restore",this);
+      file_layout->addWidget(restore_button);
+      connect(restore_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onRestore,Qt::QueuedConnection);
+
+      QPushButton * clear_button = new QPushButton("Clear",this);
+      file_layout->addWidget(clear_button);
+      connect(clear_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onClear,Qt::QueuedConnection);
+    }
 
     {
       QBoxLayout * toolbar_layout = new QBoxLayout(QBoxLayout::LeftToRight);
@@ -221,6 +251,35 @@ namespace rviz_cloud_annotation
 
     if (m_current_page > 0)
       SetCurrentLabel(GetFirstLabelForPage(m_current_page - 1),m_current_page - 1);
+  }
+
+  void QRVizCloudAnnotation::onSave()
+  {
+    std_msgs::String filename; // NYI: select filename from GUI
+    m_save_pub.publish(filename);
+  }
+
+  void QRVizCloudAnnotation::onRestore()
+  {
+    const QMessageBox::StandardButton result =
+      QMessageBox::question(this,"Restore","Do you really want to restore from saved?",QMessageBox::Yes | QMessageBox::No);
+    if (result == QMessageBox::Yes)
+    {
+      std_msgs::String filename; // NYI: select filename from GUI
+      m_restore_pub.publish(filename);
+    }
+  }
+
+  void QRVizCloudAnnotation::onClear()
+  {
+    const QMessageBox::StandardButton result =
+      QMessageBox::question(this,"Clear","Do you really want to clear all the labels?",QMessageBox::Yes | QMessageBox::No);
+    if (result == QMessageBox::Yes)
+    {
+      std_msgs::UInt32 label; // NYI: allow for labels selectively
+      label.data = 0;
+      m_clear_pub.publish(label);
+    }
   }
 
   QRVizCloudAnnotation::uint64 QRVizCloudAnnotation::GetPageForLabel(const uint64 label) const
