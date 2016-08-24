@@ -225,7 +225,7 @@ class RVizCloudAnnotation
   {
     if (m_edit_mode == EDIT_MODE_NONE)
     {
-      ROS_WARN("rviz_cloud_annotation: received spurious click while not in edit mode.");
+      ROS_WARN("rviz_cloud_annotation: received stray click while not in edit mode.");
       return;
     }
 
@@ -285,23 +285,37 @@ class RVizCloudAnnotation
     if (m_edit_mode == new_edit_mode)
       return; // nothing to do
 
+    const char * info_string;
+
     bool send_cloud = false;
     switch (new_edit_mode)
     {
       case EDIT_MODE_NONE:
         if (m_edit_mode != EDIT_MODE_NONE)
           send_cloud = true;
+        info_string = "NONE";
         break;
       case EDIT_MODE_CONTROL_POINT:
+        if (m_edit_mode == EDIT_MODE_NONE)
+          send_cloud = true;
+        info_string = "CONTROL_POINT";
+        break;
       case EDIT_MODE_ERASER:
+        if (m_edit_mode == EDIT_MODE_NONE)
+          send_cloud = true;
+        info_string = "ERASER";
+        break;
       case EDIT_MODE_COLOR_PICKER:
         if (m_edit_mode == EDIT_MODE_NONE)
           send_cloud = true;
+        info_string = "COLOR_PICKER";
         break;
       default:
         ROS_ERROR("rviz_cloud_annotation: unsupported edit mode %u received.",(unsigned int)(new_edit_mode));
         return; // invalid
     }
+
+    ROS_INFO("rviz_cloud_annotation: edit mode is now: %s",info_string);
 
     m_edit_mode = new_edit_mode;
     m_set_edit_mode_pub.publish(msg);
@@ -341,6 +355,9 @@ class RVizCloudAnnotation
       m_interactive_marker_server->insert(
         ControlPointsToMarker(*m_cloud,control_points_empty,label,(m_edit_mode != EDIT_MODE_NONE)),
         boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+      m_interactive_marker_server->insert(
+        LabelsToMarker(*m_cloud,control_points_empty,label,(m_edit_mode != EDIT_MODE_NONE)),
+        boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
     }
 
     if (apply)
@@ -353,9 +370,14 @@ class RVizCloudAnnotation
     for (uint64 i = 0; i < changed_size; i++)
     {
       const uint64 label = changed_control_points[i];
-      const Uint64Vector & control_points = m_annotation->GetControlPoints()[label - 1];
+      const Uint64Vector & control_points = m_annotation->GetControlPointList(label);
       m_interactive_marker_server->insert(
         ControlPointsToMarker(*m_cloud,control_points,label,(m_edit_mode != EDIT_MODE_NONE)),
+        boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+
+      const Uint64Vector label_points = m_annotation->GetLabelPointList(label);
+      m_interactive_marker_server->insert(
+        LabelsToMarker(*m_cloud,label_points,label,(m_edit_mode != EDIT_MODE_NONE)),
         boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
     }
 
@@ -366,6 +388,9 @@ class RVizCloudAnnotation
   InteractiveMarker ControlPointsToMarker(const PointXYZRGBNormalCloud & cloud,
                                           const Uint64Vector & control_points,
                                           const uint64 label,const bool interactive);
+  InteractiveMarker LabelsToMarker(const PointXYZRGBNormalCloud & cloud,
+                                   const Uint64Vector & labels,
+                                   const uint64 label,const bool interactive);
 
   InteractiveMarker CloudToMarker(const PointXYZRGBNormalCloud & cloud,const bool interactive);
 

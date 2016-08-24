@@ -27,7 +27,7 @@
 
 // size of the current label for each point
 #define PARAM_NAME_LABEL_SIZE                 "label_size"
-#define PARAM_DEFAULT_LABEL_SIZE              (0.005)
+#define PARAM_DEFAULT_LABEL_SIZE              (0.0025)
 
 // size of the current label for control points
 #define PARAM_NAME_CONTROL_LABEL_SIZE         "control_label_size"

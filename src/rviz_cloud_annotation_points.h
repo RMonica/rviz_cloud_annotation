@@ -47,7 +47,9 @@ class RVizCloudAnnotationPoints
   // returns a list of control points affected by the label update
   Uint64Vector UpdateLabels(const uint64 point_id,const uint64 prev_label,const uint64 next_label);
 
-  const Uint64VectorVector & GetControlPoints() const {return m_control_points; }
+  //const Uint64VectorVector & GetControlPoints() const {return m_control_points; }
+  const Uint64Vector & GetControlPointList(const uint64 label) const {return m_control_points[label - 1]; }
+  const Uint64Vector GetLabelPointList(const uint64 label) const;
 
   uint64 GetMaxLabel() const {return m_control_points.size() + 1; }
   uint64 GetCloudSize() const {return m_cloud_size; }

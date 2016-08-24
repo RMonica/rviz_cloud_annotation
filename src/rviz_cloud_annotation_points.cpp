@@ -63,6 +63,17 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::UpdateLabels(
   return result;
 }
 
+const RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::GetLabelPointList(const uint64 label) const
+{
+  Uint64Vector result;
+
+  for (uint64 i = 0; i < m_cloud_size; i++)
+    if (m_labels_assoc[i] == label)
+      result.push_back(i);
+
+  return result;
+}
+
 #define MAGIC_STRING "ANNOTATION"
 #define MAGIC_VERSION (1)
 
