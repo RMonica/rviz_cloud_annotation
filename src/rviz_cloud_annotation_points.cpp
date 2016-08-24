@@ -19,12 +19,12 @@ void RVizCloudAnnotationPoints::Clear()
   m_labels_assoc.resize(m_cloud_size,0);
 }
 
-RVizCloudAnnotationPoints::uint64 RVizCloudAnnotationPoints::SetControlPoint(const uint64 point_id,const uint64 label)
+RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPoint(const uint64 point_id,const uint64 label)
 {
   uint64 prev_label = m_control_points_assoc[point_id];
 
   if (prev_label == label)
-    return prev_label; // nothing to do
+    return Uint64Vector(); // nothing to do
 
   if (prev_label != 0)
   {
@@ -39,16 +39,28 @@ RVizCloudAnnotationPoints::uint64 RVizCloudAnnotationPoints::SetControlPoint(con
 
   m_control_points_assoc[point_id] = label;
 
-  if (label == 0)
-    return prev_label; // nothing more to do: control point was removed
+  if (label != 0)
+  {
+    if (m_control_points.size() < label)
+      m_control_points.resize(label);
 
-  if (m_control_points.size() < label)
-    m_control_points.resize(label);
+    Uint64Vector & control_point_indices = m_control_points[label - 1];
+    control_point_indices.push_back(point_id);
+  }
 
-  Uint64Vector & control_point_indices = m_control_points[label - 1];
-  control_point_indices.push_back(point_id);
+  return UpdateLabels(point_id,prev_label,label);
+}
 
-  return prev_label;
+RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::UpdateLabels(
+  const uint64 point_id,const uint64 prev_label,const uint64 next_label)
+{
+  m_labels_assoc[point_id] = next_label;
+  Uint64Vector result;
+  if (prev_label != 0)
+    result.push_back(prev_label);
+  if (next_label != 0)
+    result.push_back(next_label);
+  return result;
 }
 
 #define MAGIC_STRING "ANNOTATION"

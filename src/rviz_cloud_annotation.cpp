@@ -41,6 +41,8 @@ class RVizCloudAnnotation
   typedef pcl::PointCloud<PointXYZL> PointXYZLCloud;
   typedef pcl::PointXYZI PointXYZI;
   typedef pcl::PointCloud<PointXYZI> PointXYZICloud;
+  typedef pcl::PointXYZRGBL PointXYZRGBL;
+  typedef pcl::PointCloud<PointXYZRGBL> PointXYZRGBLCloud;
   typedef pcl::KdTreeFLANN<PointXYZRGBNormal> KdTree;
 
   typedef uint64_t uint64;
@@ -151,6 +153,19 @@ class RVizCloudAnnotation
     }
 
     ROS_INFO("rviz_cloud_annotation: file saved.");
+
+    ROS_INFO("rviz_cloud_annotation: saving cloud %s",m_ann_cloud_filename_out.c_str());
+    {
+      PointXYZRGBLCloud cloud_out;
+      pcl::copyPointCloud(*m_cloud,cloud_out);
+      m_annotation->LabelCloudWithColor(cloud_out);
+      if (pcl::io::savePCDFileBinary(m_ann_cloud_filename_out,cloud_out))
+      {
+        ROS_ERROR("rviz_cloud_annotation: could not save labeled cloud.");
+        return;
+      }
+    }
+    ROS_INFO("rviz_cloud_annotation: done.");
   }
 
   void onRestore(const std_msgs::String & filename_msg)
@@ -246,16 +261,8 @@ class RVizCloudAnnotation
     ROS_INFO("rviz_cloud_annotation: clicked on point: %u (accuracy: %f)",(unsigned int)(idx),float(dst));
     ROS_INFO("rviz_cloud_annotation: setting label %u to point %u",(unsigned int)(actual_label),(unsigned int)(idx));
 
-    const uint64 prev_label = m_annotation->SetControlPoint(idx,actual_label);
-    if (prev_label != m_current_label)
-    {
-      Uint64Vector affected_markers;
-      if (prev_label != 0)
-        affected_markers.push_back(prev_label);
-      if (m_current_label != 0)
-        affected_markers.push_back(m_current_label);
-      SendControlPointsMarker(affected_markers,true);
-    }
+    const Uint64Vector changed_labels = m_annotation->SetControlPoint(idx,actual_label);
+    SendControlPointsMarker(changed_labels,true);
   }
 
   void onSetCurrentLabel(const std_msgs::UInt32 & msg)

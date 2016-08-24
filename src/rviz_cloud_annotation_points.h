@@ -8,6 +8,11 @@
 #include <istream>
 #include <ostream>
 
+// PCL
+#include <pcl/point_cloud.h>
+#include <pcl/common/colors.h>
+#include <pcl/point_types.h>
+
 // boost
 #include <boost/shared_ptr.hpp>
 
@@ -37,12 +42,20 @@ class RVizCloudAnnotationPoints
   void Serialize(std::ostream & ofile) const;
 
   // returns the old label
-  uint64 SetControlPoint(const uint64 point_id,const uint64 label);
+  Uint64Vector SetControlPoint(const uint64 point_id,const uint64 label);
+
+  // returns a list of control points affected by the label update
+  Uint64Vector UpdateLabels(const uint64 point_id,const uint64 prev_label,const uint64 next_label);
 
   const Uint64VectorVector & GetControlPoints() const {return m_control_points; }
 
   uint64 GetMaxLabel() const {return m_control_points.size() + 1; }
   uint64 GetCloudSize() const {return m_cloud_size; }
+
+  template <class PointT>
+    void LabelCloud(pcl::PointCloud<PointT> & cloud) const;
+  template <class PointT>
+    void LabelCloudWithColor(pcl::PointCloud<PointT> & cloud) const;
 
   void Clear();
 
@@ -53,5 +66,33 @@ class RVizCloudAnnotationPoints
   Uint64VectorVector m_control_points;
   uint64 m_cloud_size;
 };
+
+template <class PointT>
+  void RVizCloudAnnotationPoints::LabelCloud(pcl::PointCloud<PointT> & cloud) const
+{
+  for (uint64 i = 0; i < m_cloud_size; i++)
+    cloud[i].label = m_labels_assoc[i];
+}
+
+template <class PointT>
+  void RVizCloudAnnotationPoints::LabelCloudWithColor(pcl::PointCloud<PointT> & cloud) const
+{
+  LabelCloud(cloud);
+  for (uint64 i = 0; i < m_cloud_size; i++)
+  {
+    const uint32 label = cloud[i].label;
+    if (!label)
+    {
+      cloud[i].r = 0;
+      cloud[i].g = 0;
+      cloud[i].b = 0;
+      continue;
+    }
+    const pcl::RGB color = pcl::GlasbeyLUT::at((label - 1) % 256);
+    cloud[i].r = color.r;
+    cloud[i].g = color.g;
+    cloud[i].b = color.b;
+  }
+}
 
 #endif // RVIZ_CLOUD_ANNOTATION_POINTS_H
