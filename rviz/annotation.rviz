@@ -28,8 +28,6 @@ Panels:
     Name: Time
     SyncMode: 0
     SyncSource: ""
-  - Class: rviz_cloud_annotation/Panel
-    Name: Panel
   - Class: rviz_cloud_annotation/Annotation
     Name: Annotation
 Visualization Manager:
