@@ -53,13 +53,6 @@ class RVizCloudAnnotation
   typedef std::vector<Uint64Vector> Uint64VectorVector;
   typedef std::vector<float> FloatVector;
 
-  enum EditMode
-  {
-    EDIT_MODE_NONE,
-    EDIT_MODE_LABELS,
-    EDIT_MODE_COLOR_PICKER,
-  };
-
   RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   {
     std::string param_string;
@@ -101,6 +94,12 @@ class RVizCloudAnnotation
 
     m_nh.param<std::string>(PARAM_NAME_SET_CURRENT_LABEL_TOPIC,param_string,PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC);
     m_set_current_label_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetCurrentLabel,this);
+
+    m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC2,param_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC2);
+    m_set_edit_mode_pub = m_nh.advertise<std_msgs::UInt32>(param_string,1);
+
+    m_nh.param<std::string>(PARAM_NAME_CURRENT_LABEL_TOPIC,param_string,PARAM_DEFAULT_CURRENT_LABEL_TOPIC);
+    m_set_current_label_pub = m_nh.advertise<std_msgs::UInt32>(param_string,1);
 
     m_nh.param<std::string>(PARAM_NAME_ANNOTATED_CLOUD,m_ann_cloud_filename_out,PARAM_DEFAULT_ANNOTATED_CLOUD);
     m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_IN,m_annotation_filename_in,PARAM_DEFAULT_ANN_FILENAME_IN);
@@ -242,10 +241,12 @@ class RVizCloudAnnotation
     const uint64 idx = idxs[0];
     const float dst = std::sqrt(dsts[0]);
 
-    ROS_INFO("rviz_cloud_annotation: clicked on point: %u (accuracy: %f)",(unsigned int)(idx),float(dst));
-    ROS_INFO("rviz_cloud_annotation: setting label %u to point %u",(unsigned int)(m_current_label),(unsigned int)(idx));
+    const uint64 actual_label = (m_edit_mode == EDIT_MODE_CONTROL_POINT) ? m_current_label : 0;
 
-    const uint64 prev_label = m_annotation->SetControlPoint(idx,m_current_label);
+    ROS_INFO("rviz_cloud_annotation: clicked on point: %u (accuracy: %f)",(unsigned int)(idx),float(dst));
+    ROS_INFO("rviz_cloud_annotation: setting label %u to point %u",(unsigned int)(actual_label),(unsigned int)(idx));
+
+    const uint64 prev_label = m_annotation->SetControlPoint(idx,actual_label);
     if (prev_label != m_current_label)
     {
       Uint64Vector affected_markers;
@@ -259,35 +260,41 @@ class RVizCloudAnnotation
 
   void onSetCurrentLabel(const std_msgs::UInt32 & msg)
   {
-    m_current_label = msg.data;
-    ROS_INFO("rviz_cloud_annotation: label is now: %u",(unsigned int)(m_current_label));
+    if (m_current_label != msg.data)
+    {
+      m_current_label = msg.data;
+      ROS_INFO("rviz_cloud_annotation: label is now: %u",(unsigned int)(m_current_label));
+      m_set_current_label_pub.publish(msg);
+    }
   }
 
   void onSetEditMode(const std_msgs::UInt32 & msg)
   {
-    const uint64 i = msg.data;
+    const uint64 new_edit_mode = msg.data;
+
+    if (m_edit_mode == new_edit_mode)
+      return; // nothing to do
+
     bool send_cloud = false;
-    switch (i)
+    switch (new_edit_mode)
     {
-      case 0:
+      case EDIT_MODE_NONE:
         if (m_edit_mode != EDIT_MODE_NONE)
           send_cloud = true;
-        m_edit_mode = EDIT_MODE_NONE;
         break;
-      case 1:
+      case EDIT_MODE_CONTROL_POINT:
+      case EDIT_MODE_ERASER:
+      case EDIT_MODE_COLOR_PICKER:
         if (m_edit_mode == EDIT_MODE_NONE)
           send_cloud = true;
-        m_edit_mode = EDIT_MODE_LABELS;
-        break;
-      case 2:
-        if (m_edit_mode == EDIT_MODE_NONE)
-          send_cloud = true;
-        m_edit_mode = EDIT_MODE_COLOR_PICKER;
         break;
       default:
-        ROS_ERROR("rviz_cloud_annotation: unsupported edit mode %u received.",(unsigned int)(i));
-        break;
+        ROS_ERROR("rviz_cloud_annotation: unsupported edit mode %u received.",(unsigned int)(new_edit_mode));
+        return; // invalid
     }
+
+    m_edit_mode = new_edit_mode;
+    m_set_edit_mode_pub.publish(msg);
 
     if (send_cloud)
     {
@@ -460,6 +467,9 @@ class RVizCloudAnnotation
   ros::Subscriber m_set_edit_mode_sub;
   ros::Subscriber m_set_current_label_sub;
 
+  ros::Publisher m_set_edit_mode_pub;
+  ros::Publisher m_set_current_label_pub;
+
   ros::Subscriber m_save_sub;
   ros::Subscriber m_restore_sub;
   ros::Subscriber m_clear_sub;
@@ -470,7 +480,7 @@ class RVizCloudAnnotation
   float m_control_label_size;
 
   uint64 m_current_label;
-  EditMode m_edit_mode;
+  uint64 m_edit_mode;
 
   std::string m_annotation_filename_in;
   std::string m_annotation_filename_out;

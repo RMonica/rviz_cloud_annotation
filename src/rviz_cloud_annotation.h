@@ -33,8 +33,13 @@
 #define PARAM_NAME_CONTROL_LABEL_SIZE         "control_label_size"
 #define PARAM_DEFAULT_CONTROL_LABEL_SIZE      (0.02)
 
+// from interface to backend
 #define PARAM_NAME_SET_EDIT_MODE_TOPIC        "rviz_cloud_annotation/set_edit_mode_topic"
 #define PARAM_DEFAULT_SET_EDIT_MODE_TOPIC     "/rviz_cloud_annotation/set_edit_mode"
+
+// from backend to interface
+#define PARAM_NAME_SET_EDIT_MODE_TOPIC2       "rviz_cloud_annotation/set_edit_mode_topic2"
+#define PARAM_DEFAULT_SET_EDIT_MODE_TOPIC2    "/rviz_cloud_annotation/set_edit_mode2"
 
 #define PARAM_NAME_COLORS_COLS_PER_PAGE       "rviz_cloud_annotation/color_columns_per_page"
 #define PARAM_DEFAULT_COLOR_COLS_PER_PAGE     (10)
@@ -45,6 +50,9 @@
 #define PARAM_NAME_SET_CURRENT_LABEL_TOPIC    "rviz_cloud_annotation/set_current_label_topic"
 #define PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC "/rviz_cloud_annotation/set_current_label"
 
+#define PARAM_NAME_CURRENT_LABEL_TOPIC        "rviz_cloud_annotation/set_current_label_topic2"
+#define PARAM_DEFAULT_CURRENT_LABEL_TOPIC     "/rviz_cloud_annotation/set_current_label2"
+
 #define PARAM_NAME_SAVE_TOPIC                 "rviz_cloud_annotation/save_topic"
 #define PARAM_DEFAULT_SAVE_TOPIC              "/rviz_cloud_annotation/save"
 
@@ -53,5 +61,11 @@
 
 #define PARAM_NAME_CLEAR_TOPIC                "rviz_cloud_annotation/clear_topic"
 #define PARAM_DEFAULT_CLEAR_TOPIC             "/rviz_cloud_annotation/clear"
+
+#define EDIT_MODE_NONE                        (0)
+#define EDIT_MODE_CONTROL_POINT               (1)
+#define EDIT_MODE_ERASER                      (2)
+#define EDIT_MODE_COLOR_PICKER                (3)
+#define EDIT_MODE_MAX                         (4)
 
 #endif // RVIZ_CLOUD_ANNOTATION_H

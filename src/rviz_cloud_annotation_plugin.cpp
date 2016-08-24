@@ -36,6 +36,9 @@ namespace rviz_cloud_annotation
       m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC,temp_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC);
       m_set_edit_mode_pub = m_nh.advertise<std_msgs::UInt32>(temp_string,1);
 
+      m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC2,temp_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC2);
+      m_set_edit_mode_sub = m_nh.subscribe(temp_string,1,&QRVizCloudAnnotation::onSetEditMode2,this);
+
       m_current_page = 0;
 
       m_nh.param<int>(PARAM_NAME_COLORS_COLS_PER_PAGE,temp_int,PARAM_DEFAULT_COLOR_COLS_PER_PAGE);
@@ -60,6 +63,9 @@ namespace rviz_cloud_annotation
 
       m_nh.param<std::string>(PARAM_NAME_SET_CURRENT_LABEL_TOPIC,temp_string,PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC);
       m_set_current_label_pub = m_nh.advertise<std_msgs::UInt32>(temp_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_CURRENT_LABEL_TOPIC,temp_string,PARAM_DEFAULT_CURRENT_LABEL_TOPIC);
+      m_set_current_label_sub = m_nh.subscribe(temp_string,1,&QRVizCloudAnnotation::onSetCurrentLabel,this);
 
       m_nh.param<std::string>(PARAM_NAME_SAVE_TOPIC,temp_string,PARAM_DEFAULT_SAVE_TOPIC);
       m_save_pub = m_nh.advertise<std_msgs::String>(temp_string,1);
@@ -94,16 +100,35 @@ namespace rviz_cloud_annotation
       QBoxLayout * toolbar_layout = new QBoxLayout(QBoxLayout::LeftToRight);
       main_layout->addLayout(toolbar_layout);
 
-      m_edit_mode_button = new QPushButton("&Edit mode",this);
-      toolbar_layout->addWidget(m_edit_mode_button);
-      m_edit_mode_button->setCheckable(true);
-      m_edit_mode_button->setShortcut(QKeySequence("E"));
-      connect(m_edit_mode_button,&QPushButton::toggled,this,&QRVizCloudAnnotation::onToggleEditMode);
+      m_toolbar_group = new QButtonGroup(this);
 
-      m_eraser_button = new QPushButton("Eraser (Del)",this);
-      m_eraser_button->setShortcut(QKeySequence("Del"));
-      m_eraser_button->setCheckable(true);
-      toolbar_layout->addWidget(m_eraser_button);
+      m_edit_none_button = new QPushButton("&Move",this);
+      m_edit_none_button->setCheckable(true);
+      m_edit_none_button->setChecked(true);
+      m_edit_none_button->setShortcut(QKeySequence("M"));
+      toolbar_layout->addWidget(m_edit_none_button);
+      m_toolbar_group->addButton(m_edit_none_button,EDIT_MODE_NONE);
+
+      m_edit_control_point_button = new QPushButton("S&et",this);
+      m_edit_control_point_button->setShortcut(QKeySequence("E"));
+      m_edit_control_point_button->setCheckable(true);
+      toolbar_layout->addWidget(m_edit_control_point_button);
+      m_toolbar_group->addButton(m_edit_control_point_button,EDIT_MODE_CONTROL_POINT);
+
+      m_edit_eraser_button = new QPushButton("Del",this);
+      m_edit_eraser_button->setShortcut(QKeySequence("Del"));
+      m_edit_eraser_button->setCheckable(true);
+      toolbar_layout->addWidget(m_edit_eraser_button);
+      m_toolbar_group->addButton(m_edit_eraser_button,EDIT_MODE_ERASER);
+
+      m_edit_color_picker_button = new QPushButton("P&ick",this);
+      m_edit_color_picker_button->setShortcut(QKeySequence("I"));
+      m_edit_color_picker_button->setCheckable(true);
+      toolbar_layout->addWidget(m_edit_color_picker_button);
+      m_toolbar_group->addButton(m_edit_color_picker_button,EDIT_MODE_COLOR_PICKER);
+
+      void (QButtonGroup::* button_clicked_function_pointer)(int) = &QButtonGroup::buttonClicked;
+      connect(m_toolbar_group,button_clicked_function_pointer,this,&QRVizCloudAnnotation::onSetEditMode);
     }
 
     {
@@ -140,7 +165,6 @@ namespace rviz_cloud_annotation
       main_layout->addLayout(page_layout);
 
       m_page_button_group = new QButtonGroup(this);
-      m_page_button_group->addButton(m_eraser_button,0);
 
       m_page_buttons.resize(m_color_cols_per_page * m_color_rows_per_page);
       for (uint64 y = 0; y < m_color_rows_per_page; y++)
@@ -160,7 +184,7 @@ namespace rviz_cloud_annotation
       connect(m_page_button_group,button_clicked_function_pointer,this,&QRVizCloudAnnotation::onLabelButtonSelected);
     }
 
-    SetCurrentEditMode(false);
+    SetCurrentEditMode(EDIT_MODE_NONE);
 
     m_current_page = 1;
     m_current_label = 0;
@@ -193,31 +217,61 @@ namespace rviz_cloud_annotation
 
   }
 
-  void QRVizCloudAnnotation::onToggleEditMode(bool on)
+  void QRVizCloudAnnotation::onSetCurrentLabel(const std_msgs::UInt32 & label)
   {
-    SetCurrentEditMode(on);
+    const uint64 new_label = label.data;
+    if (new_label == m_current_label)
+      return;
+
+    SetCurrentLabel(new_label,GetPageForLabel(new_label));
   }
 
-  void QRVizCloudAnnotation::SetCurrentEditMode(bool on)
+  void QRVizCloudAnnotation::onSetEditMode2(const std_msgs::UInt32 & mode)
   {
-    m_current_edit_mode_status = on;
+    SetCurrentEditMode(mode.data);
+  }
+
+  void QRVizCloudAnnotation::onSetEditMode(int edit_mode)
+  {
+    SetCurrentEditMode(edit_mode);
+  }
+
+  void QRVizCloudAnnotation::SetCurrentEditMode(const uint64 mode)
+  {
+    if (m_current_edit_mode == mode)
+      return;
+
+    m_current_edit_mode = mode;
 
     std_msgs::UInt32 edit_mode_out;
-    edit_mode_out.data = m_current_edit_mode_status ? 1 : 0;
+    edit_mode_out.data = mode;
     m_set_edit_mode_pub.publish(edit_mode_out);
 
-    if (m_edit_mode_button->isChecked() != on)
-      m_edit_mode_button->setChecked(on);
+    switch (mode)
+    {
+      case EDIT_MODE_NONE:
+        if (!m_edit_none_button->isChecked())
+          m_edit_none_button->setChecked(true);
+        break;
+      case EDIT_MODE_CONTROL_POINT:
+        if (!m_edit_control_point_button->isChecked())
+          m_edit_control_point_button->setChecked(true);
+        break;
+      case EDIT_MODE_ERASER:
+        if (!m_edit_eraser_button->isChecked())
+          m_edit_eraser_button->setChecked(true);
+        break;
+      case EDIT_MODE_COLOR_PICKER:
+        if (!m_edit_color_picker_button->isChecked())
+          m_edit_color_picker_button->setChecked(true);
+        break;
+      default:
+        break;
+    }
   }
 
   void QRVizCloudAnnotation::onLabelButtonSelected(int id)
   {
-    if (id == 0)
-    {
-      SetCurrentLabel(0,m_current_page);
-      return;
-    }
-
     SetCurrentLabel(GetLabelFromPageAndId(m_current_page,id),m_current_page);
   }
 
@@ -234,21 +288,11 @@ namespace rviz_cloud_annotation
 
   void QRVizCloudAnnotation::onPageUp()
   {
-    if (m_current_label == 0)
-      SetCurrentLabel(m_current_label,m_current_page + 1);
-    else
-      SetCurrentLabel(GetFirstLabelForPage(m_current_page + 1),m_current_page + 1);
+    SetCurrentLabel(GetFirstLabelForPage(m_current_page + 1),m_current_page + 1);
   }
 
   void QRVizCloudAnnotation::onPageDown()
   {
-    if (m_current_label == 0)
-    {
-      if (m_current_page > 0)
-        SetCurrentLabel(m_current_label,m_current_page - 1);
-      return;
-    }
-
     if (m_current_page > 0)
       SetCurrentLabel(GetFirstLabelForPage(m_current_page - 1),m_current_page - 1);
   }
@@ -324,17 +368,10 @@ namespace rviz_cloud_annotation
     if (label != m_current_label)
     {
       m_current_label = label;
-      if (m_current_label == 0)
-      {
-        if (!m_eraser_button->isChecked())
-          m_eraser_button->setChecked(true);
-      }
-      else
-      {
-        const uint64 current_id = (m_current_label - 1) % page_size;
-        if (!m_page_buttons[current_id]->isChecked())
-          m_page_buttons[current_id]->setChecked(true);
-      }
+
+      const uint64 current_id = (m_current_label - 1) % page_size;
+      if (!m_page_buttons[current_id]->isChecked())
+        m_page_buttons[current_id]->setChecked(true);
 
       std_msgs::UInt32 msg;
       msg.data = m_current_label;

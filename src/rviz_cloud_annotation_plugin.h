@@ -3,6 +3,7 @@
 
 #include <ros/ros.h>
 #include <rviz/panel.h>
+#include <std_msgs/UInt32.h>
 
 #include <stdint.h>
 
@@ -25,7 +26,7 @@ namespace rviz_cloud_annotation
     virtual ~QRVizCloudAnnotation();
 
     private Q_SLOTS:
-    void onToggleEditMode(bool on);
+    void onSetEditMode(int mode);
 
     void onLabelButtonSelected(int id);
     void onPlusLabel();
@@ -38,17 +39,21 @@ namespace rviz_cloud_annotation
     void onClear();
 
     private:
-    void SetCurrentEditMode(bool on);
+    void SetCurrentEditMode(const uint64 mode);
 
     void FillColorPageButtons();
 
     void SetCurrentLabel(const uint64 label,const uint64 page);
+
+    void onSetCurrentLabel(const std_msgs::UInt32 & label);
+    void onSetEditMode2(const std_msgs::UInt32 & mode);
+
     uint64 GetPageForLabel(const uint64 label) const;
     uint64 GetLabelFromPageAndId(const uint64 page,const int id) const;
     uint64 GetFirstLabelForPage(const uint64 page) const;
     uint64 GetLastLabelForPage(const uint64 page) const;
 
-    bool m_current_edit_mode_status;
+    uint64 m_current_edit_mode;
 
     // 0 for the eraser
     uint64 m_current_label;
@@ -62,8 +67,14 @@ namespace rviz_cloud_annotation
     ros::Publisher m_restore_pub;
     ros::Publisher m_clear_pub;
 
-    QPushButton * m_edit_mode_button;
-    QPushButton * m_eraser_button;
+    ros::Subscriber m_set_edit_mode_sub;
+    ros::Subscriber m_set_current_label_sub;
+
+    QPushButton * m_edit_none_button;
+    QPushButton * m_edit_control_point_button;
+    QPushButton * m_edit_eraser_button;
+    QPushButton * m_edit_color_picker_button;
+    QButtonGroup * m_toolbar_group;
 
     QPushButton * m_prev_page_button;
     QPushButton * m_next_page_button;
