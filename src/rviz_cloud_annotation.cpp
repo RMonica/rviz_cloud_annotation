@@ -1,4 +1,5 @@
 #include "rviz_cloud_annotation.h"
+#include "rviz_cloud_annotation_points.h"
 
 // STL
 #include <stdint.h>
@@ -69,8 +70,8 @@ class RVizCloudAnnotation
     LoadCloud(param_string,*m_cloud);
     m_kdtree = KdTree::Ptr(new KdTree);
     m_kdtree->setInputCloud(m_cloud);
-    m_control_points_assoc.resize(m_cloud->size(),0);
-    m_labels_assoc.resize(m_cloud->size(),0);
+
+    m_annotation = RVizCloudAnnotationPoints::Ptr(new RVizCloudAnnotationPoints(m_cloud->size()));
 
     m_nh.param<std::string>(PARAM_NAME_FRAME_ID,m_frame_id,PARAM_DEFAULT_FRAME_ID);
 
@@ -89,10 +90,11 @@ class RVizCloudAnnotation
     m_nh.param<std::string>(PARAM_NAME_SET_CURRENT_LABEL_TOPIC,param_string,PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC);
     m_set_current_label_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetCurrentLabel,this);
 
+    m_current_label = 1;
+    m_edit_mode = EDIT_MODE_NONE;
+
     SendCloudMarker(true);
     //m_interactive_marker_server->insert(CloudToCubeMarker(*m_cloud,false),&processFeedback);
-
-    m_current_label = 1;
   }
 
   void LoadCloud(const std::string & filename,PointXYZRGBNormalCloud & cloud)
@@ -151,7 +153,7 @@ class RVizCloudAnnotation
     ROS_INFO("rviz_cloud_annotation: clicked on point: %u (accuracy: %f)",(unsigned int)(idx),float(dst));
     ROS_INFO("rviz_cloud_annotation: setting label %u to point %u",(unsigned int)(m_current_label),(unsigned int)(idx));
 
-    const uint64 prev_label = SetControlPoint(idx,m_current_label);
+    const uint64 prev_label = m_annotation->SetControlPoint(idx,m_current_label);
     if (prev_label != m_current_label)
     {
       Uint64Vector affected_markers;
@@ -198,7 +200,7 @@ class RVizCloudAnnotation
     if (send_cloud)
     {
       SendCloudMarker(false);
-      SendControlPointsMarker(RangeUint64(1,m_control_points.size() + 1),true);
+      SendControlPointsMarker(RangeUint64(1,m_annotation->GetControlPoints().size() + 1),true);
     }
   }
 
@@ -226,7 +228,7 @@ class RVizCloudAnnotation
     for (uint64 i = 0; i < changed_size; i++)
     {
       const uint64 label = changed_control_points[i];
-      const Uint64Vector & control_points = m_control_points[label - 1];
+      const Uint64Vector & control_points = m_annotation->GetControlPoints()[label - 1];
       m_interactive_marker_server->insert(
         ControlPointsToMarker(*m_cloud,control_points,label,(m_edit_mode != EDIT_MODE_NONE)),
         boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
@@ -338,48 +340,12 @@ class RVizCloudAnnotation
     return marker;
   }
 
-  // returns the old label
-  uint64 SetControlPoint(const uint64 point_id,const uint64 label)
-  {
-    uint64 prev_label = m_control_points_assoc[point_id];
-
-    if (prev_label == label)
-      return prev_label; // nothing to do
-
-    if (prev_label != 0)
-    {
-      Uint64Vector & control_point_indices = m_control_points[prev_label - 1];
-      for (Uint64Vector::iterator iter = control_point_indices.begin(); iter != control_point_indices.end(); ++iter)
-        if (*iter == point_id)
-        {
-          control_point_indices.erase(iter);
-          break;
-        }
-    }
-
-    m_control_points_assoc[point_id] = label;
-
-    if (label == 0)
-      return prev_label; // nothing more to do: control point was removed
-
-    if (m_control_points.size() < label)
-      m_control_points.resize(label);
-
-    Uint64Vector & control_point_indices = m_control_points[label - 1];
-    control_point_indices.push_back(point_id);
-
-    return prev_label;
-  }
-
   private:
   ros::NodeHandle & m_nh;
   InteractiveMarkerServerPtr m_interactive_marker_server;
   PointXYZRGBNormalCloud::Ptr m_cloud;
 
-  Uint32Vector m_control_points_assoc;
-  Uint32Vector m_labels_assoc;
-  // control points for each label
-  Uint64VectorVector m_control_points;
+  RVizCloudAnnotationPoints::Ptr m_annotation;
 
   KdTree::Ptr m_kdtree;
 

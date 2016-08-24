@@ -7,6 +7,18 @@
 #define PARAM_NAME_CLOUD_FILENAME    "cloud_filename"
 #define PARAM_DEFAULT_CLOUD_FILENAME "cloud.pcd"
 
+// will attempt to load this at startup
+#define PARAM_NAME_ANN_FILENAME_IN    "annotation_read_filename"
+#define PARAM_DEFAULT_ANN_FILENAME_IN "annotation.annotation"
+
+// will save to this when asked by the GUI
+#define PARAM_NAME_ANN_FILENAME_OUT    "annotation_write_filename"
+#define PARAM_DEFAULT_ANN_FILENAME_OUT "annotation.annotation"
+
+// will also save this cloud (XYZRGBL)
+#define PARAM_NAME_ANNOTATED_CLOUD     "annotation_cloud"
+#define PARAM_DEFAULT_ANNOTATED_CLOUD  "annotation.pcd"
+
 #define PARAM_NAME_FRAME_ID          "frame_id"
 #define PARAM_DEFAULT_FRAME_ID       "base_link"
 
