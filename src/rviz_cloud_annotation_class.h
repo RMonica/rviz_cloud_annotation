@@ -75,12 +75,25 @@ class RVizCloudAnnotation
       m_nh.param<double>(PARAM_NAME_NEIGH_SEARCH_DISTANCE,param_double,PARAM_DEFAULT_NEIGH_SEARCH_DISTANCE);
       conf.search_distance = param_double;
 
+      m_nh.param<double>(PARAM_NAME_COLOR_IMPORTANCE,param_double,PARAM_DEFAULT_COLOR_IMPORTANCE);
+      conf.color_importance = param_double;
+
+      m_nh.param<double>(PARAM_NAME_NORMAL_IMPORTANCE,param_double,PARAM_DEFAULT_NORMAL_IMPORTANCE);
+      conf.normal_importance = param_double;
+
+      m_nh.param<double>(PARAM_NAME_POSITION_IMPORTANCE,param_double,PARAM_DEFAULT_POSITION_IMPORTANCE);
+      conf.position_importance = param_double;
+
+      m_nh.param<double>(PARAM_NAME_MAX_DISTANCE,param_double,PARAM_DEFAULT_MAX_DISTANCE);
+      conf.max_distance = param_double;
+
       ROS_INFO("Preparing point neighborhood...");
       m_point_neighborhood = PointNeighborhood::ConstPtr(new PointNeighborhood(m_cloud,conf));
       ROS_INFO("done.");
     }
 
-    m_annotation = RVizCloudAnnotationPoints::Ptr(new RVizCloudAnnotationPoints(m_cloud->size(),m_point_neighborhood));
+    m_annotation = RVizCloudAnnotationPoints::Ptr(new RVizCloudAnnotationPoints(
+      m_cloud->size(),m_point_neighborhood));
 
     m_nh.param<std::string>(PARAM_NAME_FRAME_ID,m_frame_id,PARAM_DEFAULT_FRAME_ID);
 

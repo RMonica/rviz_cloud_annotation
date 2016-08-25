@@ -8,6 +8,8 @@ PointNeighborhood::PointNeighborhood(PointXYZRGBNormalCloud::ConstPtr cloudptr,c
   const PointXYZRGBNormalCloud & cloud = *cloudptr;
   const uint64 cloud_size = cloud.size();
 
+  m_conf = conf;
+
   m_index.resize(cloud_size);
   Uint64Vector temporary_indices_vector(cloud_size);
 
@@ -59,6 +61,16 @@ PointNeighborhood::PointNeighborhood(PointXYZRGBNormalCloud::ConstPtr cloudptr,c
 
 float PointNeighborhood::TotalDistance(const PointXYZRGBNormal & a,const PointXYZRGBNormal & b,const Conf & conf) const
 {
-  return 1.0;
+  const Eigen::Vector3f epta(a.x,a.y,a.z);
+  const Eigen::Vector3f eptb(b.x,b.y,b.z);
+  const Eigen::Vector3f eca(a.r,a.g,a.b);
+  const Eigen::Vector3f ecb(b.r,b.g,b.b);
+  const Eigen::Vector3f ena(a.normal_x,a.normal_y,a.normal_z);
+  const Eigen::Vector3f enb(b.normal_x,b.normal_y,b.normal_z);
+
+  float spatial_dist = (epta - eptb).norm() / conf.max_distance;
+  float color_dist = (eca - ecb).norm() / 255.0f;
+  float cos_angle_normal = 1.0f - std::abs(ena.dot(enb));
+  return spatial_dist * conf.position_importance + cos_angle_normal * conf.normal_importance + color_dist * conf.color_importance;
 }
 

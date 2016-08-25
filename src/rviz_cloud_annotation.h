@@ -62,8 +62,24 @@
 #define PARAM_NAME_CLEAR_TOPIC                "rviz_cloud_annotation/clear_topic"
 #define PARAM_DEFAULT_CLEAR_TOPIC             "/rviz_cloud_annotation/clear"
 
+// parameters for smart labeling
+  // neighborhood graph distance
 #define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance"
 #define PARAM_DEFAULT_NEIGH_SEARCH_DISTANCE   (0.02)
+
+  // max label size per control point
+#define PARAM_NAME_MAX_DISTANCE               "max_label_distance"
+#define PARAM_DEFAULT_MAX_DISTANCE            (0.1)
+
+#define PARAM_NAME_COLOR_IMPORTANCE           "color_importance"
+#define PARAM_DEFAULT_COLOR_IMPORTANCE        (0.0)
+
+#define PARAM_NAME_POSITION_IMPORTANCE        "position_importance"
+#define PARAM_DEFAULT_POSITION_IMPORTANCE     (1.0)
+
+#define PARAM_NAME_NORMAL_IMPORTANCE          "normal_importance"
+#define PARAM_DEFAULT_NORMAL_IMPORTANCE       (0.0)
+// end parameters for smart labeling
 
 #define EDIT_MODE_NONE                        (0)
 #define EDIT_MODE_CONTROL_POINT               (1)

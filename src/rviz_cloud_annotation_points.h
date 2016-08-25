@@ -7,6 +7,7 @@
 #include <string>
 #include <istream>
 #include <ostream>
+#include <queue>
 
 // PCL
 #include <pcl/point_cloud.h>
@@ -28,6 +29,9 @@ class RVizCloudAnnotationPoints
   typedef std::vector<Uint64Vector> Uint64VectorVector;
   typedef std::vector<uint32> Uint32Vector;
   typedef std::vector<uint8> Uint8Vector;
+  typedef std::vector<float> FloatVector;
+  typedef std::queue<uint64> Uint64Queue;
+  typedef std::vector<bool> BoolVector;
 
   typedef boost::shared_ptr<const RVizCloudAnnotationPoints> ConstPtr;
   typedef boost::shared_ptr<RVizCloudAnnotationPoints> Ptr;
@@ -40,7 +44,8 @@ class RVizCloudAnnotationPoints
     std::string description;
   };
 
-  static RVizCloudAnnotationPoints::Ptr Deserialize(std::istream & ifile,PointNeighborhood::ConstPtr neighborhood);
+  static RVizCloudAnnotationPoints::Ptr Deserialize(std::istream & ifile,
+    PointNeighborhood::ConstPtr neighborhood);
   void Serialize(std::ostream & ofile) const;
 
   // returns the old label
@@ -67,11 +72,17 @@ class RVizCloudAnnotationPoints
   void Clear();
 
   private:
+  void RegenerateControlPointsAssoc();
+  void RegenerateLabelAssoc(BoolVector & touched);
+
   Uint32Vector m_control_points_assoc;
   Uint32Vector m_labels_assoc;
   // control points for each label
   Uint64VectorVector m_control_points;
   uint64 m_cloud_size;
+
+  FloatVector m_last_generated_dists;
+  FloatVector m_last_generated_tot_dists;
 
   PointNeighborhood::ConstPtr m_point_neighborhood;
 };

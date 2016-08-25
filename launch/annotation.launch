@@ -10,6 +10,10 @@
 
     <param name="label_size" type="double" value="0.002" />
     <param name="neighborhood_search_distance" type="double" value="0.01" />
+
+    <param name="normal_importance" type="double" value="0.5" />
+    <param name="color_importance" type="double" value="1.0" />
+    <param name="position_importance" type="double" value="0.1" />
   </node>
 
   <node pkg="rviz" type="rviz" name="annotation_rviz" output="screen" args="-d $(find rviz_cloud_annotation)/rviz/annotation.rviz" required="true" />

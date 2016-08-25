@@ -59,11 +59,16 @@ class PointNeighborhood
     return m_index[i].size;
   }
 
+  // conf used at creation
+  const Conf & GetConf() const {return m_conf; }
+
   private:
   NeighsVector m_index;
   Uint64Vector m_neighbors;
   FloatVector m_total_dists;
   FloatVector m_position_dists;
+
+  Conf m_conf;
 };
 
 #endif // POINT_NEIGHBORHOOD_H

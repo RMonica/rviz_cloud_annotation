@@ -2,11 +2,17 @@
 
 #include <boost/lexical_cast.hpp>
 
-RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size,const PointNeighborhood::ConstPtr neighborhood)
+#include "rviz_cloud_annotation.h"
+
+RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size,
+                                                     const PointNeighborhood::ConstPtr neighborhood)
 {
-  m_control_points_assoc.resize(cloud_size,0);
-  m_labels_assoc.resize(cloud_size,0);
   m_cloud_size = cloud_size;
+
+  m_control_points_assoc.resize(m_cloud_size,0);
+  m_labels_assoc.resize(m_cloud_size,0);
+  m_last_generated_dists.resize(m_cloud_size,0.0);
+  m_last_generated_tot_dists.resize(m_cloud_size,0.0);
 
   m_point_neighborhood = neighborhood;
 }
@@ -15,10 +21,14 @@ void RVizCloudAnnotationPoints::Clear()
 {
   m_control_points_assoc.clear();
   m_labels_assoc.clear();
+  m_last_generated_dists.clear();
+  m_last_generated_tot_dists.clear();
   m_control_points.clear();
 
   m_control_points_assoc.resize(m_cloud_size,0);
   m_labels_assoc.resize(m_cloud_size,0);
+  m_last_generated_dists.resize(m_cloud_size,0.0);
+  m_last_generated_tot_dists.resize(m_cloud_size,0.0);
 }
 
 RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPoint(const uint64 point_id,const uint64 label)
@@ -58,18 +68,12 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::UpdateLabels(
 {
   m_labels_assoc[point_id] = next_label;
 
-  const uint64 * neighs;
-  const float * dists;
-  const float * tot_dists;
-  const uint64 neigh_size = m_point_neighborhood->GetNeigborhoodAsPointer(point_id,neighs,tot_dists,dists);
-  for (uint64 i = 0; i < neigh_size; i++)
-    m_labels_assoc[neighs[i]] = next_label;
+  BoolVector touched;
+  RegenerateLabelAssoc(touched);
 
   Uint64Vector result;
-  if (prev_label != 0)
-    result.push_back(prev_label);
-  if (next_label != 0)
-    result.push_back(next_label);
+  for (uint64 i = 0; i < touched.size(); i++)
+    result.push_back(i + 1);
   return result;
 }
 
@@ -82,6 +86,83 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::GetLabelPoint
       result.push_back(i);
 
   return result;
+}
+
+void RVizCloudAnnotationPoints::RegenerateControlPointsAssoc()
+{
+  for (uint64 i = 0; i < m_cloud_size; i++)
+    m_control_points_assoc[i] = 0;
+
+  const uint64 control_points_size = m_control_points.size();
+  for (uint64 i = 0; i < control_points_size; i++)
+  {
+    const uint64 size = m_control_points[i].size();
+    for (uint64 h = 0; h < size; h++)
+      m_control_points_assoc[m_control_points[i][h]] = i + 1;
+  }
+}
+
+void RVizCloudAnnotationPoints::RegenerateLabelAssoc(BoolVector & touched)
+{
+  for (uint64 i = 0; i < m_cloud_size; i++)
+  {
+    m_labels_assoc[i] = 0;
+    m_last_generated_dists[i] = 0.0;
+    m_last_generated_tot_dists[i] = 0.0;
+  }
+
+  touched.clear();
+  touched.resize(m_control_points.size(),false);
+  for (uint64 i = 0; i < m_control_points.size(); i++)
+    touched[i] = true;
+
+  Uint64Queue queue;
+  BoolVector in_queue(m_cloud_size,false);
+  for (uint64 i = 0; i < m_control_points.size(); i++)
+    for (uint64 h = 0; h < m_control_points[i].size(); h++)
+    {
+      const uint64 first = m_control_points[i][h];
+      queue.push(first);
+      m_labels_assoc[first] = i + 1;
+      in_queue[first] = true;
+    }
+
+  while (!queue.empty())
+  {
+    const uint64 current = queue.front();
+    queue.pop();
+    in_queue[current] = false;
+
+    const float current_tot_dist = m_last_generated_tot_dists[current];
+    const uint32 current_label = m_labels_assoc[current];
+
+    const float * neigh_dists;
+    const float * neigh_tot_dists;
+    const uint64 * neighs;
+    const uint64 neighs_size = m_point_neighborhood->GetNeigborhoodAsPointer(current,neighs,neigh_tot_dists,neigh_dists);
+
+    for (uint64 i = 0; i < neighs_size; i++)
+    {
+      const uint64 next = neighs[i];
+      const float next_tot_dist = neigh_tot_dists[i] + current_tot_dist;
+      const uint32 next_label = m_labels_assoc[next];
+
+      if (next_tot_dist > 1.0)
+        continue;
+
+      if (next_label != 0 && m_last_generated_tot_dists[next] <= next_tot_dist)
+        continue;
+
+      m_last_generated_tot_dists[next] = next_tot_dist;
+      m_labels_assoc[next] = current_label;
+
+      if (!in_queue[next])
+      {
+        in_queue[next] = true;
+        queue.push(next);
+      }
+    }
+  }
 }
 
 #define MAGIC_STRING "ANNOTATION"
@@ -113,6 +194,47 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
   if (!ifile)
     throw IOE("Unexpected EOF while reading cloud size.");
 
+  {
+    const PointNeighborhood::Conf & conf = neighborhood->GetConf();
+    float position_importance;
+    ifile.read((char *)&position_importance,sizeof(position_importance));
+    float color_importance;
+    ifile.read((char *)&color_importance,sizeof(color_importance));
+    float normal_importance;
+    ifile.read((char *)&normal_importance,sizeof(normal_importance));
+    float max_distance;
+    ifile.read((char *)&max_distance,sizeof(max_distance));
+    float search_distance;
+    ifile.read((char *)&search_distance,sizeof(search_distance));
+    if (!ifile)
+      throw IOE("Unexpected EOF while reading neighborhood configuration parameters.");
+
+    if (position_importance != conf.position_importance ||
+      color_importance != conf.color_importance ||
+      normal_importance != conf.normal_importance ||
+      max_distance != conf.max_distance ||
+      search_distance != conf.search_distance)
+    {
+      const uint64 w = 30;
+      std::ostringstream msg;
+      msg << "Loaded neighborhood configuration parameters do not match: \n"
+          << std::setw(w) << "Name" << std::setw(w) << "ROS param" << std::setw(w) << "File\n"
+          << std::setw(w) << PARAM_NAME_POSITION_IMPORTANCE
+            << std::setw(w) << conf.position_importance << std::setw(w) << position_importance << "\n"
+          << std::setw(w) << PARAM_NAME_COLOR_IMPORTANCE
+            << std::setw(w) << conf.color_importance << std::setw(w) << color_importance << "\n"
+          << std::setw(w) << PARAM_NAME_NORMAL_IMPORTANCE
+            << std::setw(w) << conf.normal_importance << std::setw(w) << normal_importance << "\n"
+          << std::setw(w) << PARAM_NAME_MAX_DISTANCE
+            << std::setw(w) << conf.max_distance << std::setw(w) << max_distance << "\n"
+          << std::setw(w) << PARAM_NAME_NEIGH_SEARCH_DISTANCE
+            << std::setw(w) << conf.search_distance << std::setw(w) << search_distance
+          ;
+      throw IOE(msg.str());
+    }
+
+  }
+
   RVizCloudAnnotationPoints::Ptr resultptr(new RVizCloudAnnotationPoints(cloud_size,neighborhood));
   RVizCloudAnnotationPoints & result = *resultptr;
 
@@ -140,23 +262,10 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
     }
   }
 
-  for (uint64 i = 0; i < cloud_size; i++)
-  {
-    uint32 centroid_index;
-    ifile.read((char *)&centroid_index,sizeof(centroid_index));
-    if (!ifile)
-      throw IOE("Unexpected EOF while reading control point association.");
-    result.m_control_points_assoc[i] = centroid_index;
-  }
+  result.RegenerateControlPointsAssoc();
 
-  for (uint64 i = 0; i < cloud_size; i++)
-  {
-    uint32 label_index;
-    ifile.read((char *)&label_index,sizeof(label_index));
-    if (!ifile)
-      throw IOE("Unexpected EOF while reading label association.");
-    result.m_labels_assoc[i] = label_index;
-  }
+  BoolVector touched;
+  result.RegenerateLabelAssoc(touched);
 
   return resultptr;
 }
@@ -172,6 +281,21 @@ void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile) const
   ofile.write((char *)&version,sizeof(version));
   const uint64 cloud_size = m_cloud_size;
   ofile.write((char *)&cloud_size,sizeof(cloud_size));
+
+  {
+    const PointNeighborhood::Conf & conf = m_point_neighborhood->GetConf();
+    const float position_importance = conf.position_importance;
+    ofile.write((char *)&position_importance,sizeof(position_importance));
+    const float color_importance = conf.color_importance;
+    ofile.write((char *)&color_importance,sizeof(color_importance));
+    const float normal_importance = conf.normal_importance;
+    ofile.write((char *)&normal_importance,sizeof(normal_importance));
+    const float max_distance = conf.max_distance;
+    ofile.write((char *)&max_distance,sizeof(max_distance));
+    const float search_distance = conf.search_distance;
+    ofile.write((char *)&search_distance,sizeof(search_distance));
+  }
+
   const uint64 control_points_size = m_control_points.size();
   ofile.write((char *)&control_points_size,sizeof(control_points_size));
 
@@ -184,18 +308,6 @@ void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile) const
       const uint64 point_index = m_control_points[i][h];
       ofile.write((char *)&point_index,sizeof(point_index));
     }
-  }
-
-  for (uint64 i = 0; i < cloud_size; i++)
-  {
-    const uint32 centroid_index = m_control_points_assoc[i];
-    ofile.write((char *)&centroid_index,sizeof(centroid_index));
-  }
-
-  for (uint64 i = 0; i < cloud_size; i++)
-  {
-    const uint32 label_index = m_labels_assoc[i];
-    ofile.write((char *)&label_index,sizeof(label_index));
   }
 
   if (!ofile)
