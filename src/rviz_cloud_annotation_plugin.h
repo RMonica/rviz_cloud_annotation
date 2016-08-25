@@ -5,8 +5,10 @@
 #include <rviz/panel.h>
 #include <std_msgs/UInt32.h>
 #include <std_msgs/String.h>
+#include <std_msgs/UInt64MultiArray.h>
 
 #include <stdint.h>
+#include <vector>
 
 class QLabel;
 class QPushButton;
@@ -21,6 +23,7 @@ namespace rviz_cloud_annotation
     Q_OBJECT;
 
     typedef uint64_t uint64;
+    typedef std::vector<uint64> Uint64Vector;
     typedef std::vector<QPushButton *> PQPushButtonVector;
 
     public:
@@ -46,11 +49,13 @@ namespace rviz_cloud_annotation
     void SetCurrentEditMode(const uint64 mode);
 
     void FillColorPageButtons();
+    void FillPointCounts();
 
     void SetCurrentLabel(const uint64 label,const uint64 page);
 
     void onSetCurrentLabel(const std_msgs::UInt32 & label);
     void onSetEditMode2(const std_msgs::UInt32 & mode);
+    void onPointCountUpdate(const std_msgs::UInt64MultiArray & counters);
 
     void onSetName(const std_msgs::String & name);
 
@@ -93,6 +98,9 @@ namespace rviz_cloud_annotation
 
     PQPushButtonVector m_page_buttons;
     QButtonGroup * m_page_button_group;
+
+    Uint64Vector m_point_counters;
+    ros::Subscriber m_point_count_update_sub;
 
     QLineEdit * m_set_name_edit;
 

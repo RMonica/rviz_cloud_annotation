@@ -74,6 +74,13 @@ class RVizCloudAnnotationPoints
   uint64 GetMaxLabel() const {return m_control_points.size() + 1; }
   uint64 GetCloudSize() const {return m_cloud_size; }
 
+  uint64 GetLabelPointCount(const uint64 label) const
+  {
+    if (label > m_control_point_names.size())
+      return 0;
+    return m_control_points[label - 1].size();
+  }
+
   void ExpandControlPointsUntil(const uint64 label);
 
   template <class PointT>

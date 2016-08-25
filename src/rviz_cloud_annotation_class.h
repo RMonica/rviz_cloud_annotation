@@ -16,6 +16,7 @@
 #include <interactive_markers/interactive_marker_server.h>
 #include <std_msgs/UInt32.h>
 #include <std_msgs/String.h>
+#include <std_msgs/UInt64MultiArray.h>
 
 // PCL
 #include <pcl/point_cloud.h>
@@ -127,6 +128,9 @@ class RVizCloudAnnotation
     m_nh.param<std::string>(PARAM_NAME_CURRENT_LABEL_TOPIC,param_string,PARAM_DEFAULT_CURRENT_LABEL_TOPIC);
     m_set_current_label_pub = m_nh.advertise<std_msgs::UInt32>(param_string,1);
 
+    m_nh.param<std::string>(PARAM_NAME_POINT_COUNT_UPDATE_TOPIC,param_string,PARAM_DEFAULT_POINT_COUNT_UPDATE_TOPIC);
+    m_point_count_update_pub = m_nh.advertise<std_msgs::UInt64MultiArray>(param_string,1,true);
+
     m_nh.param<std::string>(PARAM_NAME_ANNOTATED_CLOUD,m_ann_cloud_filename_out,PARAM_DEFAULT_ANNOTATED_CLOUD);
     m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_IN,m_annotation_filename_in,PARAM_DEFAULT_ANN_FILENAME_IN);
     m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_OUT,m_annotation_filename_out,PARAM_DEFAULT_ANN_FILENAME_OUT);
@@ -213,8 +217,10 @@ class RVizCloudAnnotation
 
   void onClear(const std_msgs::UInt32 & /*label_msg*/)
   {
+    const uint64 old_max_label = m_annotation->GetMaxLabel();
     ClearControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),false);
     m_annotation->Clear();
+    SendPointCounts(RangeUint64(1,old_max_label));
     SendControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),true);
   }
 
@@ -263,12 +269,14 @@ class RVizCloudAnnotation
       ROS_INFO("rviz_cloud_annotation: setting label %u to point %u",(unsigned int)(m_current_label),(unsigned int)(idx));
       const Uint64Vector changed_labels = m_annotation->SetControlPoint(idx,m_current_label);
       SendControlPointsMarker(changed_labels,true);
+      SendPointCounts(changed_labels);
     }
     else if (m_edit_mode == EDIT_MODE_ERASER)
     {
       ROS_INFO("rviz_cloud_annotation: eraser: erasing label from point %u",(unsigned int)(idx));
       const Uint64Vector changed_labels = m_annotation->SetControlPoint(idx,0);
       SendControlPointsMarker(changed_labels,true);
+      SendPointCounts(changed_labels);
     }
     else if (m_edit_mode == EDIT_MODE_COLOR_PICKER)
     {
@@ -373,6 +381,20 @@ class RVizCloudAnnotation
     m_set_name_pub.publish(msg);
   }
 
+  void SendPointCounts(const Uint64Vector & labels)
+  {
+    const uint64 labels_size = labels.size();
+    std_msgs::UInt64MultiArray msg;
+    for (uint64 i = 0; i < labels_size; i++)
+    {
+      const uint64 label = labels[i];
+      const uint64 count = m_annotation->GetLabelPointCount(label);
+      msg.data.push_back(label);
+      msg.data.push_back(count);
+    }
+    m_point_count_update_pub.publish(msg);
+  }
+
   Uint64Vector RangeUint64(const uint64 start,const uint64 end) const
   {
     Uint64Vector result(end - start);
@@ -461,6 +483,8 @@ class RVizCloudAnnotation
   ros::Subscriber m_save_sub;
   ros::Subscriber m_restore_sub;
   ros::Subscriber m_clear_sub;
+
+  ros::Publisher m_point_count_update_pub;
 
   std::string m_frame_id;
   float m_point_size;

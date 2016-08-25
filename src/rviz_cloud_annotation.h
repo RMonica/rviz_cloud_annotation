@@ -73,6 +73,10 @@
 #define PARAM_NAME_SET_NAME_TOPIC2            "rviz_cloud_annotation/set_name_topic2"
 #define PARAM_DEFAULT_SET_NAME_TOPIC2         "/rviz_cloud_annotation/set_name2"
 
+// from backend to RViz
+#define PARAM_NAME_POINT_COUNT_UPDATE_TOPIC   "rviz_cloud_annotation/point_count_update"
+#define PARAM_DEFAULT_POINT_COUNT_UPDATE_TOPIC "/rviz_cloud_annotation/point_count_update"
+
 // parameters for smart labeling
   // neighborhood graph distance
 #define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance"

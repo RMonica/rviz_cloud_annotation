@@ -4,6 +4,8 @@
 
 #include "rviz_cloud_annotation.h"
 
+#include <pcl/console/time.h>
+
 RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size,
                                                      const PointNeighborhood::ConstPtr neighborhood)
 {

@@ -31,14 +31,14 @@ namespace rviz_cloud_annotation
   QRVizCloudAnnotation::QRVizCloudAnnotation(QWidget * parent): rviz::Panel(parent), m_nh("~")
   {
     {
-      std::string temp_string;
+      std::string param_string;
       int temp_int;
 
-      m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC,temp_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC);
-      m_set_edit_mode_pub = m_nh.advertise<std_msgs::UInt32>(temp_string,1);
+      m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC,param_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC);
+      m_set_edit_mode_pub = m_nh.advertise<std_msgs::UInt32>(param_string,1);
 
-      m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC2,temp_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC2);
-      m_set_edit_mode_sub = m_nh.subscribe(temp_string,1,&QRVizCloudAnnotation::onSetEditMode2,this);
+      m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC2,param_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC2);
+      m_set_edit_mode_sub = m_nh.subscribe(param_string,1,&QRVizCloudAnnotation::onSetEditMode2,this);
 
       m_current_page = 0;
 
@@ -62,26 +62,29 @@ namespace rviz_cloud_annotation
                  PARAM_NAME_COLORS_ROWS_PER_PAGE,temp_int);
       }
 
-      m_nh.param<std::string>(PARAM_NAME_SET_CURRENT_LABEL_TOPIC,temp_string,PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC);
-      m_set_current_label_pub = m_nh.advertise<std_msgs::UInt32>(temp_string,1);
+      m_nh.param<std::string>(PARAM_NAME_SET_CURRENT_LABEL_TOPIC,param_string,PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC);
+      m_set_current_label_pub = m_nh.advertise<std_msgs::UInt32>(param_string,1);
 
-      m_nh.param<std::string>(PARAM_NAME_CURRENT_LABEL_TOPIC,temp_string,PARAM_DEFAULT_CURRENT_LABEL_TOPIC);
-      m_set_current_label_sub = m_nh.subscribe(temp_string,1,&QRVizCloudAnnotation::onSetCurrentLabel,this);
+      m_nh.param<std::string>(PARAM_NAME_CURRENT_LABEL_TOPIC,param_string,PARAM_DEFAULT_CURRENT_LABEL_TOPIC);
+      m_set_current_label_sub = m_nh.subscribe(param_string,1,&QRVizCloudAnnotation::onSetCurrentLabel,this);
 
-      m_nh.param<std::string>(PARAM_NAME_SAVE_TOPIC,temp_string,PARAM_DEFAULT_SAVE_TOPIC);
-      m_save_pub = m_nh.advertise<std_msgs::String>(temp_string,1);
+      m_nh.param<std::string>(PARAM_NAME_SAVE_TOPIC,param_string,PARAM_DEFAULT_SAVE_TOPIC);
+      m_save_pub = m_nh.advertise<std_msgs::String>(param_string,1);
 
-      m_nh.param<std::string>(PARAM_NAME_RESTORE_TOPIC,temp_string,PARAM_DEFAULT_RESTORE_TOPIC);
-      m_restore_pub = m_nh.advertise<std_msgs::String>(temp_string,1);
+      m_nh.param<std::string>(PARAM_NAME_RESTORE_TOPIC,param_string,PARAM_DEFAULT_RESTORE_TOPIC);
+      m_restore_pub = m_nh.advertise<std_msgs::String>(param_string,1);
 
-      m_nh.param<std::string>(PARAM_NAME_CLEAR_TOPIC,temp_string,PARAM_DEFAULT_CLEAR_TOPIC);
-      m_clear_pub = m_nh.advertise<std_msgs::UInt32>(temp_string,1);
+      m_nh.param<std::string>(PARAM_NAME_CLEAR_TOPIC,param_string,PARAM_DEFAULT_CLEAR_TOPIC);
+      m_clear_pub = m_nh.advertise<std_msgs::UInt32>(param_string,1);
 
-      m_nh.param<std::string>(PARAM_NAME_SET_NAME_TOPIC,temp_string,PARAM_DEFAULT_SET_NAME_TOPIC);
-      m_set_name_pub = m_nh.advertise<std_msgs::String>(temp_string,1);
+      m_nh.param<std::string>(PARAM_NAME_SET_NAME_TOPIC,param_string,PARAM_DEFAULT_SET_NAME_TOPIC);
+      m_set_name_pub = m_nh.advertise<std_msgs::String>(param_string,1);
 
-      m_nh.param<std::string>(PARAM_NAME_SET_NAME_TOPIC2,temp_string,PARAM_DEFAULT_SET_NAME_TOPIC2);
-      m_set_name_sub = m_nh.subscribe(temp_string,1,&QRVizCloudAnnotation::onSetName,this);
+      m_nh.param<std::string>(PARAM_NAME_SET_NAME_TOPIC2,param_string,PARAM_DEFAULT_SET_NAME_TOPIC2);
+      m_set_name_sub = m_nh.subscribe(param_string,1,&QRVizCloudAnnotation::onSetName,this);
+
+      m_nh.param<std::string>(PARAM_NAME_POINT_COUNT_UPDATE_TOPIC,param_string,PARAM_DEFAULT_POINT_COUNT_UPDATE_TOPIC);
+      m_point_count_update_sub = m_nh.subscribe(param_string,1,&QRVizCloudAnnotation::onPointCountUpdate,this);
     }
 
     QBoxLayout * main_layout = new QBoxLayout(QBoxLayout::TopToBottom,this);
@@ -227,6 +230,35 @@ namespace rviz_cloud_annotation
     std_msgs::String msg;
     msg.data = m_set_name_edit->text().toUtf8().constData();
     m_set_name_pub.publish(msg);
+  }
+
+  void QRVizCloudAnnotation::onPointCountUpdate(const std_msgs::UInt64MultiArray & counters)
+  {
+    const uint64 count = counters.data.size() / 2;
+    for (uint64 i = 0; i < count; i++)
+    {
+      const uint64 index = counters.data[i * 2];
+      const uint64 value = counters.data[i * 2 + 1];
+
+      if (index > m_point_counters.size())
+        m_point_counters.resize(index,0);
+      m_point_counters[index - 1] = value;
+    }
+
+    FillPointCounts();
+  }
+
+  void QRVizCloudAnnotation::FillPointCounts()
+  {
+    const uint64 page_size = m_color_cols_per_page * m_color_rows_per_page;
+    for (uint64 i = 0; i < page_size; i++)
+    {
+      const uint64 label = i + m_current_page * page_size + 1;
+
+      const uint64 count = (label > m_point_counters.size()) ? 0 : m_point_counters[label - 1];
+      const std::string str = boost::lexical_cast<std::string>(count);
+      m_page_buttons[i]->setText(str.c_str());
+    }
   }
 
   void QRVizCloudAnnotation::FillColorPageButtons()
@@ -396,6 +428,7 @@ namespace rviz_cloud_annotation
     {
       m_current_page = page;
       FillColorPageButtons();
+      FillPointCounts();
     }
 
     if (label != m_current_label)
