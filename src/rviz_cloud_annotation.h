@@ -19,6 +19,9 @@
 #define PARAM_NAME_ANNOTATED_CLOUD            "annotation_cloud"
 #define PARAM_DEFAULT_ANNOTATED_CLOUD         "annotation.pcd"
 
+#define PARAM_NAME_LABEL_NAMES_FILENAME       "label_names_filename"
+#define PARAM_DEFAULT_LABEL_NAMES_FILENAME    "names.txt"
+
 #define PARAM_NAME_FRAME_ID                   "frame_id"
 #define PARAM_DEFAULT_FRAME_ID                "base_link"
 

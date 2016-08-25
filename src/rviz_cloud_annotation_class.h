@@ -130,6 +130,7 @@ class RVizCloudAnnotation
     m_nh.param<std::string>(PARAM_NAME_ANNOTATED_CLOUD,m_ann_cloud_filename_out,PARAM_DEFAULT_ANNOTATED_CLOUD);
     m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_IN,m_annotation_filename_in,PARAM_DEFAULT_ANN_FILENAME_IN);
     m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_OUT,m_annotation_filename_out,PARAM_DEFAULT_ANN_FILENAME_OUT);
+    m_nh.param<std::string>(PARAM_NAME_LABEL_NAMES_FILENAME,m_label_names_filename_out,PARAM_DEFAULT_LABEL_NAMES_FILENAME);
 
     m_nh.param<std::string>(PARAM_NAME_SET_NAME_TOPIC,param_string,PARAM_DEFAULT_SET_NAME_TOPIC);
     m_set_name_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetName,this);
@@ -178,21 +179,26 @@ class RVizCloudAnnotation
     catch (const RVizCloudAnnotationPoints::IOE & e)
     {
       ROS_ERROR("rviz_cloud_annotation: could not save file %s, reason: %s.",filename.c_str(),e.description.c_str());
-      return;
     }
+    ROS_INFO("rviz_cloud_annotation: done.");
 
-    ROS_INFO("rviz_cloud_annotation: file saved.");
-
-    ROS_INFO("rviz_cloud_annotation: saving cloud %s",m_ann_cloud_filename_out.c_str());
+    ROS_INFO("rviz_cloud_annotation: saving cloud: %s",m_ann_cloud_filename_out.c_str());
     {
       PointXYZRGBLCloud cloud_out;
       pcl::copyPointCloud(*m_cloud,cloud_out);
       m_annotation->LabelCloudWithColor(cloud_out);
       if (pcl::io::savePCDFileBinary(m_ann_cloud_filename_out,cloud_out))
-      {
         ROS_ERROR("rviz_cloud_annotation: could not save labeled cloud.");
-        return;
-      }
+    }
+    ROS_INFO("rviz_cloud_annotation: done.");
+
+    ROS_INFO("rviz_cloud_annotation: saving names: %s",m_label_names_filename_out.c_str());
+    {
+      std::ofstream ofile(m_label_names_filename_out.c_str());
+      for (uint64 i = 1; i < m_annotation->GetMaxLabel(); i++)
+        ofile << i << ": " << m_annotation->GetNameForLabel(i) << "\n";
+      if (!ofile)
+        ROS_ERROR("rviz_cloud_annotation: could not write file.");
     }
     ROS_INFO("rviz_cloud_annotation: done.");
   }
@@ -469,6 +475,7 @@ class RVizCloudAnnotation
   std::string m_annotation_filename_in;
   std::string m_annotation_filename_out;
   std::string m_ann_cloud_filename_out;
+  std::string m_label_names_filename_out;
 };
 
 #endif // RVIZ_CLOUD_ANNOTATION_CLASS_H
