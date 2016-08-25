@@ -4,12 +4,14 @@
 #include <ros/ros.h>
 #include <rviz/panel.h>
 #include <std_msgs/UInt32.h>
+#include <std_msgs/String.h>
 
 #include <stdint.h>
 
 class QLabel;
 class QPushButton;
 class QButtonGroup;
+class QLineEdit;
 
 namespace rviz_cloud_annotation
 {
@@ -38,6 +40,8 @@ namespace rviz_cloud_annotation
     void onRestore();
     void onClear();
 
+    void onSendName();
+
     private:
     void SetCurrentEditMode(const uint64 mode);
 
@@ -47,6 +51,8 @@ namespace rviz_cloud_annotation
 
     void onSetCurrentLabel(const std_msgs::UInt32 & label);
     void onSetEditMode2(const std_msgs::UInt32 & mode);
+
+    void onSetName(const std_msgs::String & name);
 
     uint64 GetPageForLabel(const uint64 label) const;
     uint64 GetLabelFromPageAndId(const uint64 page,const int id) const;
@@ -70,6 +76,9 @@ namespace rviz_cloud_annotation
     ros::Subscriber m_set_edit_mode_sub;
     ros::Subscriber m_set_current_label_sub;
 
+    ros::Publisher m_set_name_pub;
+    ros::Subscriber m_set_name_sub;
+
     QPushButton * m_edit_none_button;
     QPushButton * m_edit_control_point_button;
     QPushButton * m_edit_eraser_button;
@@ -84,6 +93,8 @@ namespace rviz_cloud_annotation
 
     PQPushButtonVector m_page_buttons;
     QButtonGroup * m_page_button_group;
+
+    QLineEdit * m_set_name_edit;
 
     uint64 m_color_cols_per_page;
     uint64 m_color_rows_per_page;

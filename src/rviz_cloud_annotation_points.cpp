@@ -24,6 +24,7 @@ void RVizCloudAnnotationPoints::Clear()
   m_last_generated_dists.clear();
   m_last_generated_tot_dists.clear();
   m_control_points.clear();
+  m_control_point_names.clear();
 
   m_control_points_assoc.resize(m_cloud_size,0);
   m_labels_assoc.resize(m_cloud_size,0);
@@ -53,8 +54,7 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPoi
 
   if (label != 0)
   {
-    if (m_control_points.size() < label)
-      m_control_points.resize(label);
+    ExpandControlPointsUntil(label);
 
     Uint64Vector & control_point_indices = m_control_points[label - 1];
     control_point_indices.push_back(point_id);
@@ -165,8 +165,24 @@ void RVizCloudAnnotationPoints::RegenerateLabelAssoc(BoolVector & touched)
   }
 }
 
+void RVizCloudAnnotationPoints::SetNameForLabel(const uint64 label,const std::string & name)
+{
+  ExpandControlPointsUntil(label);
+  m_control_point_names[label - 1] = name;
+}
+
+void RVizCloudAnnotationPoints::ExpandControlPointsUntil(const uint64 label)
+{
+  if (m_control_points.size() >= label)
+    return;
+
+  m_control_points.resize(label);
+  m_control_point_names.resize(label);
+}
+
 #define MAGIC_STRING "ANNOTATION"
-#define MAGIC_VERSION (1)
+#define MAGIC_MIN_VERSION (1)
+#define MAGIC_MAX_VERSION (2)
 
 RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istream & ifile,
                                                                       PointNeighborhood::ConstPtr neighborhood)
@@ -186,7 +202,7 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
   ifile.read((char *)&version,sizeof(version));
   if (!ifile)
     throw IOE("Unexpected EOF while reading version.");
-  if (version != MAGIC_VERSION)
+  if (version < MAGIC_MIN_VERSION || version > MAGIC_MAX_VERSION)
     throw IOE(std::string("Invalid version: ") + boost::lexical_cast<std::string>(version));
 
   uint64 cloud_size;
@@ -228,7 +244,7 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
           << std::setw(w) << PARAM_NAME_MAX_DISTANCE
             << std::setw(w) << conf.max_distance << std::setw(w) << max_distance << "\n"
           << std::setw(w) << PARAM_NAME_NEIGH_SEARCH_DISTANCE
-            << std::setw(w) << conf.search_distance << std::setw(w) << search_distance
+            << std::setw(w) << conf.search_distance << std::setw(w) << search_distance << "\n"
           ;
       throw IOE(msg.str());
     }
@@ -242,7 +258,7 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
   ifile.read((char *)&control_points_size,sizeof(control_points_size));
   if (!ifile)
     throw IOE("Unexpected EOF while reading control point size.");
-  result.m_control_points.resize(control_points_size);
+  result.ExpandControlPointsUntil(control_points_size);
 
   for (uint64 i = 0; i < control_points_size; i++)
   {
@@ -262,6 +278,23 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
     }
   }
 
+  if (version >= 2)
+  {
+    for (uint64 i = 0; i < control_points_size; i++)
+    {
+      uint32 string_size;
+      ifile.read((char *)&string_size,sizeof(string_size));
+      if (!ifile)
+        throw IOE("Unexpected EOF while reading text label size " + boost::lexical_cast<std::string>(i) + ".");
+      Uint8Vector data(string_size + 1,0); // this is 0-terminated for sure
+      ifile.read((char *)(data.data()),string_size);
+      if (!ifile)
+        throw IOE("Unexpected EOF while reading text label content " + boost::lexical_cast<std::string>(i) + ".");
+      std::string str((const char *)(data.data()));
+      result.m_control_point_names[i] = str;
+    }
+  }
+
   result.RegenerateControlPointsAssoc();
 
   BoolVector touched;
@@ -277,7 +310,7 @@ void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile) const
 
   const std::string magic_string = MAGIC_STRING;
   ofile.write(magic_string.c_str(),magic_string.size() + 1);
-  const uint64 version = MAGIC_VERSION;
+  const uint64 version = MAGIC_MAX_VERSION;
   ofile.write((char *)&version,sizeof(version));
   const uint64 cloud_size = m_cloud_size;
   ofile.write((char *)&cloud_size,sizeof(cloud_size));
@@ -308,6 +341,13 @@ void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile) const
       const uint64 point_index = m_control_points[i][h];
       ofile.write((char *)&point_index,sizeof(point_index));
     }
+  }
+
+  for (uint64 i = 0; i < control_points_size; i++)
+  {
+    uint32 string_size = m_control_point_names[i].size();
+    ofile.write((char *)&string_size,sizeof(string_size));
+    ofile.write(m_control_point_names[i].c_str(),string_size);
   }
 
   if (!ofile)

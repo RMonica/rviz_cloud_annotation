@@ -32,6 +32,7 @@ class RVizCloudAnnotationPoints
   typedef std::vector<float> FloatVector;
   typedef std::queue<uint64> Uint64Queue;
   typedef std::vector<bool> BoolVector;
+  typedef std::vector<std::string> StringVector;
 
   typedef boost::shared_ptr<const RVizCloudAnnotationPoints> ConstPtr;
   typedef boost::shared_ptr<RVizCloudAnnotationPoints> Ptr;
@@ -61,8 +62,19 @@ class RVizCloudAnnotationPoints
   // 0 if none
   uint64 GetLabelForPoint(const uint64 idx) const {return m_labels_assoc[idx]; }
 
+  std::string GetNameForLabel(const uint64 label) const
+  {
+    if (label > m_control_point_names.size())
+      return "";
+    return m_control_point_names[label - 1];
+  }
+
+  void SetNameForLabel(const uint64 label,const std::string & name);
+
   uint64 GetMaxLabel() const {return m_control_points.size() + 1; }
   uint64 GetCloudSize() const {return m_cloud_size; }
+
+  void ExpandControlPointsUntil(const uint64 label);
 
   template <class PointT>
     void LabelCloud(pcl::PointCloud<PointT> & cloud) const;
@@ -83,6 +95,8 @@ class RVizCloudAnnotationPoints
 
   FloatVector m_last_generated_dists;
   FloatVector m_last_generated_tot_dists;
+
+  StringVector m_control_point_names;
 
   PointNeighborhood::ConstPtr m_point_neighborhood;
 };

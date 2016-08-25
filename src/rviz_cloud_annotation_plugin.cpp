@@ -10,6 +10,7 @@
 #include <QGridLayout>
 #include <QButtonGroup>
 #include <QMessageBox>
+#include <QLineEdit>
 
 // STL
 #include <iostream>
@@ -75,6 +76,12 @@ namespace rviz_cloud_annotation
 
       m_nh.param<std::string>(PARAM_NAME_CLEAR_TOPIC,temp_string,PARAM_DEFAULT_CLEAR_TOPIC);
       m_clear_pub = m_nh.advertise<std_msgs::UInt32>(temp_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_SET_NAME_TOPIC,temp_string,PARAM_DEFAULT_SET_NAME_TOPIC);
+      m_set_name_pub = m_nh.advertise<std_msgs::String>(temp_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_SET_NAME_TOPIC2,temp_string,PARAM_DEFAULT_SET_NAME_TOPIC2);
+      m_set_name_sub = m_nh.subscribe(temp_string,1,&QRVizCloudAnnotation::onSetName,this);
     }
 
     QBoxLayout * main_layout = new QBoxLayout(QBoxLayout::TopToBottom,this);
@@ -184,6 +191,19 @@ namespace rviz_cloud_annotation
       connect(m_page_button_group,button_clicked_function_pointer,this,&QRVizCloudAnnotation::onLabelButtonSelected);
     }
 
+    {
+      QBoxLayout * set_name_layout = new QBoxLayout(QBoxLayout::LeftToRight);
+      main_layout->addLayout(set_name_layout);
+
+      QPushButton * set_name_button = new QPushButton("Set name: ",this);
+      set_name_layout->addWidget(set_name_button);
+
+      m_set_name_edit = new QLineEdit("",this);
+      set_name_layout->addWidget(m_set_name_edit);
+      connect(m_set_name_edit,SIGNAL(returnPressed()),set_name_button,SLOT(animateClick())); // won't work with qt5 syntax
+      connect(set_name_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onSendName);
+    }
+
     SetCurrentEditMode(EDIT_MODE_NONE);
 
     m_current_page = 1;
@@ -194,6 +214,19 @@ namespace rviz_cloud_annotation
   QRVizCloudAnnotation::~QRVizCloudAnnotation()
   {
 
+  }
+
+  void QRVizCloudAnnotation::onSetName(const std_msgs::String & name)
+  {
+    const std::string n = name.data;
+    m_set_name_edit->setText(n.c_str());
+  }
+
+  void QRVizCloudAnnotation::onSendName()
+  {
+    std_msgs::String msg;
+    msg.data = m_set_name_edit->text().toUtf8().constData();
+    m_set_name_pub.publish(msg);
   }
 
   void QRVizCloudAnnotation::FillColorPageButtons()

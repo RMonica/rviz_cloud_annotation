@@ -62,6 +62,14 @@
 #define PARAM_NAME_CLEAR_TOPIC                "rviz_cloud_annotation/clear_topic"
 #define PARAM_DEFAULT_CLEAR_TOPIC             "/rviz_cloud_annotation/clear"
 
+// from RViz to backend
+#define PARAM_NAME_SET_NAME_TOPIC             "rviz_cloud_annotation/set_name_topic"
+#define PARAM_DEFAULT_SET_NAME_TOPIC          "/rviz_cloud_annotation/set_name"
+
+// from backend to RViz
+#define PARAM_NAME_SET_NAME_TOPIC2            "rviz_cloud_annotation/set_name_topic2"
+#define PARAM_DEFAULT_SET_NAME_TOPIC2         "/rviz_cloud_annotation/set_name2"
+
 // parameters for smart labeling
   // neighborhood graph distance
 #define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance"

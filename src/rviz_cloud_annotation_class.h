@@ -131,11 +131,16 @@ class RVizCloudAnnotation
     m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_IN,m_annotation_filename_in,PARAM_DEFAULT_ANN_FILENAME_IN);
     m_nh.param<std::string>(PARAM_NAME_ANN_FILENAME_OUT,m_annotation_filename_out,PARAM_DEFAULT_ANN_FILENAME_OUT);
 
+    m_nh.param<std::string>(PARAM_NAME_SET_NAME_TOPIC,param_string,PARAM_DEFAULT_SET_NAME_TOPIC);
+    m_set_name_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetName,this);
+
+    m_nh.param<std::string>(PARAM_NAME_SET_NAME_TOPIC2,param_string,PARAM_DEFAULT_SET_NAME_TOPIC2);
+    m_set_name_pub = m_nh.advertise<std_msgs::String>(param_string,1,true);
+
     m_current_label = 1;
     m_edit_mode = EDIT_MODE_NONE;
 
     SendCloudMarker(true);
-
     Restore(m_annotation_filename_in);
   }
 
@@ -265,7 +270,10 @@ class RVizCloudAnnotation
       if (label ==  0)
         ROS_WARN("rviz_cloud_annotation: color picker: point %u has no label yet.",uint(idx));
       else
+      {
         SetCurrentLabel(label);
+        SetEditMode(EDIT_MODE_CONTROL_POINT);
+      }
     }
   }
 
@@ -275,7 +283,9 @@ class RVizCloudAnnotation
       return;
 
     m_current_label = label;
+    m_annotation->ExpandControlPointsUntil(m_current_label);
     ROS_INFO("rviz_cloud_annotation: label is now: %u",(unsigned int)(m_current_label));
+    SendName();
 
     std_msgs::UInt32 msg;
     msg.data = label;
@@ -340,6 +350,21 @@ class RVizCloudAnnotation
   void onSetEditMode(const std_msgs::UInt32 & msg)
   {
     SetEditMode(msg.data);
+  }
+
+  void onSetName(const std_msgs::String & msg)
+  {
+    m_annotation->SetNameForLabel(m_current_label,msg.data);
+    ROS_INFO("rviz_cloud_annotation: label %u has now name %s.",uint(m_current_label),msg.data.c_str());
+    SendName();
+  }
+
+  void SendName()
+  {
+    std::string name = m_annotation->GetNameForLabel(m_current_label);
+    std_msgs::String msg;
+    msg.data = name;
+    m_set_name_pub.publish(msg);
   }
 
   Uint64Vector RangeUint64(const uint64 start,const uint64 end) const
@@ -423,6 +448,9 @@ class RVizCloudAnnotation
 
   ros::Publisher m_set_edit_mode_pub;
   ros::Publisher m_set_current_label_pub;
+
+  ros::Subscriber m_set_name_sub;
+  ros::Publisher m_set_name_pub;
 
   ros::Subscriber m_save_sub;
   ros::Subscriber m_restore_sub;

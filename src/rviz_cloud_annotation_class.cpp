@@ -182,9 +182,12 @@ void RVizCloudAnnotation::Restore(const std::string & filename)
               new_size,old_size);
   }
 
+  m_annotation->ExpandControlPointsUntil(m_current_label);
+
   ClearControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),false);
   m_annotation = maybe_new_annotation;
   SendControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),true);
+  SendName();
 
   ROS_INFO("rviz_cloud_annotation: file loaded.");
 }
