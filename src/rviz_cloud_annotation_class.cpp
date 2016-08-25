@@ -166,7 +166,7 @@ void RVizCloudAnnotation::Restore(const std::string & filename)
   RVizCloudAnnotationPoints::Ptr maybe_new_annotation;
   try
   {
-    maybe_new_annotation = RVizCloudAnnotationPoints::Deserialize(ifile);
+    maybe_new_annotation = RVizCloudAnnotationPoints::Deserialize(ifile,m_point_neighborhood);
   }
   catch (const RVizCloudAnnotationPoints::IOE & e)
   {

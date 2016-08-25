@@ -16,6 +16,8 @@
 // boost
 #include <boost/shared_ptr.hpp>
 
+#include "point_neighborhood.h"
+
 class RVizCloudAnnotationPoints
 {
   public:
@@ -30,7 +32,7 @@ class RVizCloudAnnotationPoints
   typedef boost::shared_ptr<const RVizCloudAnnotationPoints> ConstPtr;
   typedef boost::shared_ptr<RVizCloudAnnotationPoints> Ptr;
 
-  explicit RVizCloudAnnotationPoints(const uint64 cloud_size);
+  explicit RVizCloudAnnotationPoints(const uint64 cloud_size,const PointNeighborhood::ConstPtr neighborhood);
 
   struct IOE // IO exception
   {
@@ -38,7 +40,7 @@ class RVizCloudAnnotationPoints
     std::string description;
   };
 
-  static RVizCloudAnnotationPoints::Ptr Deserialize(std::istream & ifile);
+  static RVizCloudAnnotationPoints::Ptr Deserialize(std::istream & ifile,PointNeighborhood::ConstPtr neighborhood);
   void Serialize(std::ostream & ofile) const;
 
   // returns the old label
@@ -70,6 +72,8 @@ class RVizCloudAnnotationPoints
   // control points for each label
   Uint64VectorVector m_control_points;
   uint64 m_cloud_size;
+
+  PointNeighborhood::ConstPtr m_point_neighborhood;
 };
 
 template <class PointT>

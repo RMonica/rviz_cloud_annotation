@@ -62,6 +62,9 @@
 #define PARAM_NAME_CLEAR_TOPIC                "rviz_cloud_annotation/clear_topic"
 #define PARAM_DEFAULT_CLEAR_TOPIC             "/rviz_cloud_annotation/clear"
 
+#define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance"
+#define PARAM_DEFAULT_NEIGH_SEARCH_DISTANCE   (0.02)
+
 #define EDIT_MODE_NONE                        (0)
 #define EDIT_MODE_CONTROL_POINT               (1)
 #define EDIT_MODE_ERASER                      (2)

@@ -3,6 +3,7 @@
 
 #include "rviz_cloud_annotation.h"
 #include "rviz_cloud_annotation_points.h"
+#include "point_neighborhood.h"
 
 // STL
 #include <stdint.h>
@@ -40,10 +41,6 @@ class RVizCloudAnnotation
   typedef visualization_msgs::InteractiveMarkerFeedbackConstPtr InteractiveMarkerFeedbackConstPtr;
   typedef pcl::PointXYZRGBNormal PointXYZRGBNormal;
   typedef pcl::PointCloud<PointXYZRGBNormal> PointXYZRGBNormalCloud;
-  typedef pcl::PointXYZL PointXYZL;
-  typedef pcl::PointCloud<PointXYZL> PointXYZLCloud;
-  typedef pcl::PointXYZI PointXYZI;
-  typedef pcl::PointCloud<PointXYZI> PointXYZICloud;
   typedef pcl::PointXYZRGBL PointXYZRGBL;
   typedef pcl::PointCloud<PointXYZRGBL> PointXYZRGBLCloud;
   typedef pcl::KdTreeFLANN<PointXYZRGBNormal> KdTree;
@@ -72,7 +69,18 @@ class RVizCloudAnnotation
     m_kdtree = KdTree::Ptr(new KdTree);
     m_kdtree->setInputCloud(m_cloud);
 
-    m_annotation = RVizCloudAnnotationPoints::Ptr(new RVizCloudAnnotationPoints(m_cloud->size()));
+    {
+      PointNeighborhood::Conf conf;
+
+      m_nh.param<double>(PARAM_NAME_NEIGH_SEARCH_DISTANCE,param_double,PARAM_DEFAULT_NEIGH_SEARCH_DISTANCE);
+      conf.search_distance = param_double;
+
+      ROS_INFO("Preparing point neighborhood...");
+      m_point_neighborhood = PointNeighborhood::ConstPtr(new PointNeighborhood(m_cloud,conf));
+      ROS_INFO("done.");
+    }
+
+    m_annotation = RVizCloudAnnotationPoints::Ptr(new RVizCloudAnnotationPoints(m_cloud->size(),m_point_neighborhood));
 
     m_nh.param<std::string>(PARAM_NAME_FRAME_ID,m_frame_id,PARAM_DEFAULT_FRAME_ID);
 
@@ -414,6 +422,8 @@ class RVizCloudAnnotation
 
   uint64 m_current_label;
   uint64 m_edit_mode;
+
+  PointNeighborhood::ConstPtr m_point_neighborhood;
 
   std::string m_annotation_filename_in;
   std::string m_annotation_filename_out;

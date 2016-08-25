@@ -96,6 +96,7 @@ add_executable(rviz_cloud_annotation_node
   src/rviz_cloud_annotation.cpp
   src/rviz_cloud_annotation_points.cpp
   src/rviz_cloud_annotation_class.cpp
+  src/point_neighborhood.cpp
   )
 
 add_dependencies(rviz_cloud_annotation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

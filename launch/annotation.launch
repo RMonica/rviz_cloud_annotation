@@ -7,6 +7,9 @@
     <param name="annotation_read_filename" type="string" value="$(find rviz_cloud_annotation)/data/annotation.ann" />
     <param name="annotation_write_filename" type="string" value="$(find rviz_cloud_annotation)/data/annotation.ann" />
     <param name="annotation_cloud" type="string" value="$(find rviz_cloud_annotation)/data/annotation.pcd" />
+
+    <param name="label_size" type="double" value="0.002" />
+    <param name="neighborhood_search_distance" type="double" value="0.01" />
   </node>
 
   <node pkg="rviz" type="rviz" name="annotation_rviz" output="screen" args="-d $(find rviz_cloud_annotation)/rviz/annotation.rviz" required="true" />

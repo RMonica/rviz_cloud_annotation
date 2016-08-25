@@ -2,11 +2,13 @@
 
 #include <boost/lexical_cast.hpp>
 
-RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size)
+RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size,const PointNeighborhood::ConstPtr neighborhood)
 {
   m_control_points_assoc.resize(cloud_size,0);
   m_labels_assoc.resize(cloud_size,0);
   m_cloud_size = cloud_size;
+
+  m_point_neighborhood = neighborhood;
 }
 
 void RVizCloudAnnotationPoints::Clear()
@@ -55,6 +57,14 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::UpdateLabels(
   const uint64 point_id,const uint64 prev_label,const uint64 next_label)
 {
   m_labels_assoc[point_id] = next_label;
+
+  const uint64 * neighs;
+  const float * dists;
+  const float * tot_dists;
+  const uint64 neigh_size = m_point_neighborhood->GetNeigborhoodAsPointer(point_id,neighs,tot_dists,dists);
+  for (uint64 i = 0; i < neigh_size; i++)
+    m_labels_assoc[neighs[i]] = next_label;
+
   Uint64Vector result;
   if (prev_label != 0)
     result.push_back(prev_label);
@@ -77,7 +87,8 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::GetLabelPoint
 #define MAGIC_STRING "ANNOTATION"
 #define MAGIC_VERSION (1)
 
-RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istream & ifile)
+RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istream & ifile,
+                                                                      PointNeighborhood::ConstPtr neighborhood)
 {
   if (!ifile)
     throw IOE("Invalid file stream.");
@@ -102,7 +113,7 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
   if (!ifile)
     throw IOE("Unexpected EOF while reading cloud size.");
 
-  RVizCloudAnnotationPoints::Ptr resultptr(new RVizCloudAnnotationPoints(cloud_size));
+  RVizCloudAnnotationPoints::Ptr resultptr(new RVizCloudAnnotationPoints(cloud_size,neighborhood));
   RVizCloudAnnotationPoints & result = *resultptr;
 
   uint64 control_points_size;
