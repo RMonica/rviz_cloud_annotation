@@ -11,6 +11,9 @@
 #include <QButtonGroup>
 #include <QMessageBox>
 #include <QLineEdit>
+#include <QMenuBar>
+#include <QMenu>
+#include <QAction>
 
 // STL
 #include <iostream>
@@ -90,24 +93,28 @@ namespace rviz_cloud_annotation
     QBoxLayout * main_layout = new QBoxLayout(QBoxLayout::TopToBottom,this);
 
     {
-      QBoxLayout * file_layout = new QBoxLayout(QBoxLayout::LeftToRight);
-      main_layout->addLayout(file_layout);
+      QMenuBar * menu_bar = new QMenuBar(this);
+      main_layout->addWidget(menu_bar);
 
-      QPushButton * save_button = new QPushButton("Save",this);
-      file_layout->addWidget(save_button);
-      connect(save_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onSave,Qt::QueuedConnection);
+      QMenu * file_menu = menu_bar->addMenu("File");
 
-      QPushButton * restore_button = new QPushButton("Restore",this);
-      file_layout->addWidget(restore_button);
-      connect(restore_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onRestore,Qt::QueuedConnection);
+      QAction * clear_action = new QAction("New",menu_bar);
+      file_menu->addAction(clear_action);
+      connect(clear_action,&QAction::triggered,this,&QRVizCloudAnnotation::onClear,Qt::QueuedConnection);
 
-      QPushButton * clear_button = new QPushButton("Clear",this);
-      file_layout->addWidget(clear_button);
-      connect(clear_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onClear,Qt::QueuedConnection);
+      QAction * save_action = new QAction("Save",menu_bar);
+      file_menu->addAction(save_action);
+      connect(save_action,&QAction::triggered,this,&QRVizCloudAnnotation::onSave,Qt::QueuedConnection);
 
-      QPushButton * current_clear_button = new QPushButton("Clear Curr",this);
-      file_layout->addWidget(current_clear_button);
-      connect(current_clear_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onClearCurrent,Qt::QueuedConnection);
+      QAction * restore_action = new QAction("Restore",menu_bar);
+      file_menu->addAction(restore_action);
+      connect(restore_action,&QAction::triggered,this,&QRVizCloudAnnotation::onRestore,Qt::QueuedConnection);
+
+      QMenu * label_menu = menu_bar->addMenu("Label");
+
+      QAction * clear_current_action = new QAction("Clear current",menu_bar);
+      label_menu->addAction(clear_current_action);
+      connect(clear_current_action,&QAction::triggered,this,&QRVizCloudAnnotation::onClearCurrent,Qt::QueuedConnection);
     }
 
     {
@@ -375,7 +382,8 @@ namespace rviz_cloud_annotation
   void QRVizCloudAnnotation::onRestore()
   {
     const QMessageBox::StandardButton result =
-      QMessageBox::question(this,"Restore","Do you really want to restore from saved?",QMessageBox::Yes | QMessageBox::No);
+      QMessageBox::question(this,"Restore","Are you sure you want to restore from last save?\n"
+                                           "Current progress will be lost!",QMessageBox::Yes | QMessageBox::No);
     if (result == QMessageBox::Yes)
     {
       std_msgs::String filename; // NYI: select filename from GUI
@@ -386,7 +394,8 @@ namespace rviz_cloud_annotation
   void QRVizCloudAnnotation::onClear()
   {
     const QMessageBox::StandardButton result =
-      QMessageBox::question(this,"Clear","Do you really want to clear all the labels?",QMessageBox::Yes | QMessageBox::No);
+      QMessageBox::question(this,"New","Are you sure you want to clear all labels?\n"
+                                       "Current annotation will be lost!",QMessageBox::Yes | QMessageBox::No);
     if (result == QMessageBox::Yes)
     {
       std_msgs::UInt32 label;
@@ -397,7 +406,7 @@ namespace rviz_cloud_annotation
 
   void QRVizCloudAnnotation::onClearCurrent()
   {
-    const std::string msg = std::string("Do you really want to clear label ") +
+    const std::string msg = std::string("Are you sure you want to clear label ") +
       boost::lexical_cast<std::string>(m_current_label) + "?";
     const QMessageBox::StandardButton result =
       QMessageBox::question(this,"Clear",msg.c_str(),QMessageBox::Yes | QMessageBox::No);
