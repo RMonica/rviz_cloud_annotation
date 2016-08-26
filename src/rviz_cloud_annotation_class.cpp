@@ -92,8 +92,19 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_nh.param<std::string>(PARAM_NAME_SET_NAME_TOPIC2,param_string,PARAM_DEFAULT_SET_NAME_TOPIC2);
   m_set_name_pub = m_nh.advertise<std_msgs::String>(param_string,1,true);
 
+  m_nh.param<std::string>(PARAM_NAME_VIEW_CONTROL_POINTS_TOPIC,param_string,PARAM_DEFAULT_VIEW_CONTROL_POINTS_TOPIC);
+  m_view_control_points_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onViewControlPoints,this);
+
+  m_nh.param<std::string>(PARAM_NAME_VIEW_CLOUD_TOPIC,param_string,PARAM_DEFAULT_VIEW_CLOUD_TOPIC);
+  m_view_cloud_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onViewCloud,this);
+
+  m_nh.param<std::string>(PARAM_NAME_VIEW_LABEL_TOPIC,param_string,PARAM_DEFAULT_VIEW_LABEL_TOPIC);
+  m_view_labels_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onViewLabels,this);
+
   m_current_label = 1;
   m_edit_mode = EDIT_MODE_NONE;
+
+  m_view_cloud = m_view_labels = m_view_control_points = true;
 
   SendCloudMarker(true);
   Restore(m_annotation_filename_in);
@@ -145,7 +156,8 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarke
   points_control.interaction_mode = interactive ?
     int32(visualization_msgs::InteractiveMarkerControl::BUTTON) :
     int32(visualization_msgs::InteractiveMarkerControl::NONE);
-  points_control.markers.push_back(cloud_marker);
+  if (m_view_control_points)
+    points_control.markers.push_back(cloud_marker);
   marker.controls.push_back(points_control);
 
   return marker;
@@ -170,11 +182,14 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
 
   const pcl::RGB color = pcl::GlasbeyLUT::at((label - 1) % 256);
 
+  const float label_size = m_view_cloud ? m_label_size : m_point_size;
+  const float normal_mult = m_view_cloud ? m_label_size / 2.0 : 0.0;
+
   Marker cloud_marker;
   cloud_marker.type = Marker::POINTS;
-  cloud_marker.scale.x = m_label_size;
-  cloud_marker.scale.y = m_label_size;
-  cloud_marker.scale.z = m_label_size;
+  cloud_marker.scale.x = label_size;
+  cloud_marker.scale.y = label_size;
+  cloud_marker.scale.z = label_size;
   cloud_marker.color.r = color.r / 255.0;
   cloud_marker.color.g = color.g / 255.0;
   cloud_marker.color.b = color.b / 255.0;
@@ -185,9 +200,9 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
   {
     const PointXYZRGBNormal & pt = cloud[labels[i]];
 
-    cloud_marker.points[i].x = pt.x + pt.normal_x * m_label_size / 2.0;
-    cloud_marker.points[i].y = pt.y + pt.normal_y * m_label_size / 2.0;
-    cloud_marker.points[i].z = pt.z + pt.normal_z * m_label_size / 2.0;
+    cloud_marker.points[i].x = pt.x + pt.normal_x * normal_mult;
+    cloud_marker.points[i].y = pt.y + pt.normal_y * normal_mult;
+    cloud_marker.points[i].z = pt.z + pt.normal_z * normal_mult;
   }
 
   visualization_msgs::InteractiveMarkerControl points_control;
@@ -195,7 +210,8 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
   points_control.interaction_mode = interactive ?
     int32(visualization_msgs::InteractiveMarkerControl::BUTTON) :
     int32(visualization_msgs::InteractiveMarkerControl::NONE);
-  points_control.markers.push_back(cloud_marker);
+  if (m_view_labels)
+    points_control.markers.push_back(cloud_marker);
   marker.controls.push_back(points_control);
 
   return marker;
@@ -245,7 +261,8 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::CloudToMarker(const 
   points_control.interaction_mode = interactive ?
     int32(visualization_msgs::InteractiveMarkerControl::BUTTON) :
     int32(visualization_msgs::InteractiveMarkerControl::NONE);
-  points_control.markers.push_back(cloud_marker);
+  if (m_view_cloud)
+    points_control.markers.push_back(cloud_marker);
   marker.controls.push_back(points_control);
 
   return marker;

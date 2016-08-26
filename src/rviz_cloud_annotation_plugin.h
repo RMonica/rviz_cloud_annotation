@@ -15,6 +15,7 @@ class QPushButton;
 class QButtonGroup;
 class QLineEdit;
 class QAction;
+class QToolButton;
 
 namespace rviz_cloud_annotation
 {
@@ -46,6 +47,10 @@ namespace rviz_cloud_annotation
     void onClearCurrent();
 
     void onSendName();
+
+    void onViewCloudToggled(const bool checked);
+    void onViewControlPointsToggled(const bool checked);
+    void onViewLabelsToggled(const bool checked);
 
     private:
     void SetCurrentEditMode(const uint64 mode);
@@ -86,22 +91,22 @@ namespace rviz_cloud_annotation
     ros::Publisher m_set_name_pub;
     ros::Subscriber m_set_name_sub;
 
+    ros::Publisher m_view_cloud_pub;
+    ros::Publisher m_view_labels_pub;
+    ros::Publisher m_view_control_points_pub;
+
     QPushButton * m_edit_none_button;
     QPushButton * m_edit_control_point_button;
     QPushButton * m_edit_eraser_button;
     QPushButton * m_edit_color_picker_button;
     QButtonGroup * m_toolbar_group;
 
-    QPushButton * m_prev_page_button;
-    QPushButton * m_next_page_button;
-    QPushButton * m_next_label_button;
-    QPushButton * m_prev_label_button;
-
     QAction * m_prev_page_action;
     QAction * m_next_page_action;
-    QLabel * m_current_page_label;
     QAction * m_next_label_action;
     QAction * m_prev_label_action;
+
+    QLabel * m_current_page_label;
 
     PQPushButtonVector m_page_buttons;
     QButtonGroup * m_page_button_group;

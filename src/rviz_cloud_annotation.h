@@ -77,6 +77,15 @@
 #define PARAM_NAME_POINT_COUNT_UPDATE_TOPIC   "rviz_cloud_annotation/point_count_update"
 #define PARAM_DEFAULT_POINT_COUNT_UPDATE_TOPIC "/rviz_cloud_annotation/point_count_update"
 
+#define PARAM_NAME_VIEW_LABEL_TOPIC           "rviz_cloud_annotation/view_labels_topic"
+#define PARAM_DEFAULT_VIEW_LABEL_TOPIC        "/rviz_cloud_annotation/view_labels"
+
+#define PARAM_NAME_VIEW_CONTROL_POINTS_TOPIC  "rviz_cloud_annotation/view_control_points_topic"
+#define PARAM_DEFAULT_VIEW_CONTROL_POINTS_TOPIC "/rviz_cloud_annotation/view_control_points"
+
+#define PARAM_NAME_VIEW_CLOUD_TOPIC           "rviz_cloud_annotation/view_cloud_topic"
+#define PARAM_DEFAULT_VIEW_CLOUD_TOPIC        "/rviz_cloud_annotation/view_cloud"
+
 // parameters for smart labeling
   // neighborhood graph distance
 #define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance"

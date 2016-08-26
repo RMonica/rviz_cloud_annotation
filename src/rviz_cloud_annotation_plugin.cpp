@@ -14,6 +14,7 @@
 #include <QMenuBar>
 #include <QMenu>
 #include <QAction>
+#include <QToolButton>
 
 // STL
 #include <iostream>
@@ -23,6 +24,7 @@
 // ROS
 #include <std_msgs/UInt32.h>
 #include <std_msgs/String.h>
+#include <std_msgs/Bool.h>
 
 // PCL
 #include <pcl/common/colors.h>
@@ -88,6 +90,15 @@ namespace rviz_cloud_annotation
 
       m_nh.param<std::string>(PARAM_NAME_POINT_COUNT_UPDATE_TOPIC,param_string,PARAM_DEFAULT_POINT_COUNT_UPDATE_TOPIC);
       m_point_count_update_sub = m_nh.subscribe(param_string,1,&QRVizCloudAnnotation::onPointCountUpdate,this);
+
+      m_nh.param<std::string>(PARAM_NAME_VIEW_CLOUD_TOPIC,param_string,PARAM_DEFAULT_VIEW_CLOUD_TOPIC);
+      m_view_cloud_pub = m_nh.advertise<std_msgs::Bool>(param_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_VIEW_CONTROL_POINTS_TOPIC,param_string,PARAM_DEFAULT_VIEW_CONTROL_POINTS_TOPIC);
+      m_view_control_points_pub = m_nh.advertise<std_msgs::Bool>(param_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_VIEW_LABEL_TOPIC,param_string,PARAM_DEFAULT_VIEW_LABEL_TOPIC);
+      m_view_labels_pub = m_nh.advertise<std_msgs::Bool>(param_string,1);
     }
 
     QBoxLayout * main_layout = new QBoxLayout(QBoxLayout::TopToBottom,this);
@@ -179,31 +190,38 @@ namespace rviz_cloud_annotation
     {
       QBoxLayout * page_shift_layout = new QBoxLayout(QBoxLayout::LeftToRight);
       main_layout->addLayout(page_shift_layout);
-/*
-      m_prev_page_button = new QPushButton("<<",this);
-      m_prev_page_button->setShortcut(QKeySequence("PgDown"));
-      m_prev_page_button->setMinimumWidth(2);
-      connect(m_prev_page_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onPageDown);
-      page_shift_layout->addWidget(m_prev_page_button);
-      m_next_page_button = new QPushButton(">>",this);
-      m_next_page_button->setShortcut(QKeySequence("PgUp"));
-      m_next_page_button->setMinimumWidth(2);
-      connect(m_next_page_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onPageUp);
-      page_shift_layout->addWidget(m_next_page_button);*/
+
       m_current_page_label = new QLabel("0/0",this);
+      m_current_page_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
       page_shift_layout->addWidget(m_current_page_label);
-/*
-      m_prev_label_button = new QPushButton("-",this);
-      m_prev_label_button->setShortcut(QKeySequence("-"));
-      m_prev_label_button->setMinimumWidth(2);
-      connect(m_prev_label_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onMinusLabel);
-      page_shift_layout->addWidget(m_prev_label_button);
-      m_next_label_button = new QPushButton("+",this);
-      m_next_label_button->setShortcut(QKeySequence("+"));
-      m_next_label_button->setMinimumWidth(2);
-      connect(m_next_label_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onPlusLabel);
-      page_shift_layout->addWidget(m_next_label_button);
-*/
+
+      QLabel * view_label = new QLabel("Show:",this);
+      view_label->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
+      page_shift_layout->addWidget(view_label);
+
+      QToolButton * view_cloud_button = new QToolButton(this);
+      view_cloud_button->setText("Cloud");
+      view_cloud_button->setCheckable(true);
+      view_cloud_button->setChecked(true);
+      view_cloud_button->setSizePolicy(QSizePolicy::Minimum,QSizePolicy::Preferred);
+      page_shift_layout->addWidget(view_cloud_button);
+      connect(view_cloud_button,&QToolButton::toggled,this,&QRVizCloudAnnotation::onViewCloudToggled);
+
+      QToolButton * view_labels_button = new QToolButton(this);
+      view_labels_button->setText("Labels");
+      view_labels_button->setCheckable(true);
+      view_labels_button->setChecked(true);
+      view_labels_button->setSizePolicy(QSizePolicy::Minimum,QSizePolicy::Preferred);
+      page_shift_layout->addWidget(view_labels_button);
+      connect(view_labels_button,&QToolButton::toggled,this,&QRVizCloudAnnotation::onViewLabelsToggled);
+
+      QToolButton * view_control_points_button = new QToolButton(this);
+      view_control_points_button->setText("Seeds");
+      view_control_points_button->setCheckable(true);
+      view_control_points_button->setChecked(true);
+      view_control_points_button->setSizePolicy(QSizePolicy::Minimum,QSizePolicy::Preferred);
+      page_shift_layout->addWidget(view_control_points_button);
+      connect(view_control_points_button,&QToolButton::toggled,this,&QRVizCloudAnnotation::onViewControlPointsToggled);
     }
 
     {
@@ -266,6 +284,27 @@ namespace rviz_cloud_annotation
     std_msgs::String msg;
     msg.data = m_set_name_edit->text().toUtf8().constData();
     m_set_name_pub.publish(msg);
+  }
+
+  void QRVizCloudAnnotation::onViewCloudToggled(const bool checked)
+  {
+    std_msgs::Bool msg;
+    msg.data = checked;
+    m_view_cloud_pub.publish(msg);
+  }
+
+  void QRVizCloudAnnotation::onViewControlPointsToggled(const bool checked)
+  {
+    std_msgs::Bool msg;
+    msg.data = checked;
+    m_view_control_points_pub.publish(msg);
+  }
+
+  void QRVizCloudAnnotation::onViewLabelsToggled(const bool checked)
+  {
+    std_msgs::Bool msg;
+    msg.data = checked;
+    m_view_labels_pub.publish(msg);
   }
 
   void QRVizCloudAnnotation::onPointCountUpdate(const std_msgs::UInt64MultiArray & counters)

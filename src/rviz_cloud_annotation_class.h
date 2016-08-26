@@ -17,6 +17,7 @@
 #include <std_msgs/UInt32.h>
 #include <std_msgs/String.h>
 #include <std_msgs/UInt64MultiArray.h>
+#include <std_msgs/Bool.h>
 
 // PCL
 #include <pcl/point_cloud.h>
@@ -124,6 +125,30 @@ class RVizCloudAnnotation
   }
 
   void SetEditMode(const uint64 new_edit_mode);
+
+  void onViewLabels(const std_msgs::Bool & msg)
+  {
+    m_view_labels = msg.data;
+
+    SendCloudMarker(false);
+    SendControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),true);
+  }
+
+  void onViewControlPoints(const std_msgs::Bool & msg)
+  {
+    m_view_control_points = msg.data;
+
+    SendCloudMarker(false);
+    SendControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),true);
+  }
+
+  void onViewCloud(const std_msgs::Bool & msg)
+  {
+    m_view_cloud = msg.data;
+
+    SendCloudMarker(false);
+    SendControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),true);
+  }
 
   void onSetCurrentLabel(const std_msgs::UInt32 & msg)
   {
@@ -254,6 +279,13 @@ class RVizCloudAnnotation
   ros::Subscriber m_save_sub;
   ros::Subscriber m_restore_sub;
   ros::Subscriber m_clear_sub;
+
+  ros::Subscriber m_view_control_points_sub;
+  ros::Subscriber m_view_cloud_sub;
+  ros::Subscriber m_view_labels_sub;
+  bool m_view_cloud;
+  bool m_view_labels;
+  bool m_view_control_points;
 
   ros::Publisher m_point_count_update_pub;
 
