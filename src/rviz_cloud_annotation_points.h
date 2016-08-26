@@ -52,8 +52,8 @@ class RVizCloudAnnotationPoints
   // returns the old label
   Uint64Vector SetControlPoint(const uint64 point_id,const uint64 label);
 
-  // returns a list of control points affected by the label update
-  Uint64Vector UpdateLabels(const uint64 point_id,const uint64 prev_label,const uint64 next_label);
+  // returns a list of labels affected by the label update
+  Uint64Vector UpdateLabels(const Uint64Vector & point_ids,const uint64 prev_label,const uint64 next_label);
 
   //const Uint64VectorVector & GetControlPoints() const {return m_control_points; }
   const Uint64Vector & GetControlPointList(const uint64 label) const {return m_control_points[label - 1]; }
@@ -88,7 +88,8 @@ class RVizCloudAnnotationPoints
   template <class PointT>
     void LabelCloudWithColor(pcl::PointCloud<PointT> & cloud) const;
 
-  void Clear();
+  Uint64Vector Clear();
+  Uint64Vector ClearLabel(const uint64 label); // clear label, returns list of affected markers
 
   private:
   void RegenerateControlPointsAssoc();

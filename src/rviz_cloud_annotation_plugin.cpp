@@ -104,6 +104,10 @@ namespace rviz_cloud_annotation
       QPushButton * clear_button = new QPushButton("Clear",this);
       file_layout->addWidget(clear_button);
       connect(clear_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onClear,Qt::QueuedConnection);
+
+      QPushButton * current_clear_button = new QPushButton("Clear Curr",this);
+      file_layout->addWidget(current_clear_button);
+      connect(current_clear_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onClearCurrent,Qt::QueuedConnection);
     }
 
     {
@@ -385,8 +389,22 @@ namespace rviz_cloud_annotation
       QMessageBox::question(this,"Clear","Do you really want to clear all the labels?",QMessageBox::Yes | QMessageBox::No);
     if (result == QMessageBox::Yes)
     {
-      std_msgs::UInt32 label; // NYI: allow for labels selectively
+      std_msgs::UInt32 label;
       label.data = 0;
+      m_clear_pub.publish(label);
+    }
+  }
+
+  void QRVizCloudAnnotation::onClearCurrent()
+  {
+    const std::string msg = std::string("Do you really want to clear label ") +
+      boost::lexical_cast<std::string>(m_current_label) + "?";
+    const QMessageBox::StandardButton result =
+      QMessageBox::question(this,"Clear",msg.c_str(),QMessageBox::Yes | QMessageBox::No);
+    if (result == QMessageBox::Yes)
+    {
+      std_msgs::UInt32 label;
+      label.data = m_current_label;
       m_clear_pub.publish(label);
     }
   }

@@ -42,6 +42,7 @@ namespace rviz_cloud_annotation
     void onSave();
     void onRestore();
     void onClear();
+    void onClearCurrent();
 
     void onSendName();
 

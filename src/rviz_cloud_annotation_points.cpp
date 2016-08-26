@@ -19,8 +19,13 @@ RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size,
   m_point_neighborhood = neighborhood;
 }
 
-void RVizCloudAnnotationPoints::Clear()
+RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::Clear()
 {
+  Uint64Vector result;
+  result.resize(m_control_points.size());
+  for (uint64 i = 0; i < result.size(); i++)
+    result[i] = i + 1;
+
   m_control_points_assoc.clear();
   m_labels_assoc.clear();
   m_last_generated_dists.clear();
@@ -32,6 +37,8 @@ void RVizCloudAnnotationPoints::Clear()
   m_labels_assoc.resize(m_cloud_size,0);
   m_last_generated_dists.resize(m_cloud_size,0.0);
   m_last_generated_tot_dists.resize(m_cloud_size,0.0);
+
+  return result;
 }
 
 RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPoint(const uint64 point_id,const uint64 label)
@@ -62,14 +69,14 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPoi
     control_point_indices.push_back(point_id);
   }
 
-  return UpdateLabels(point_id,prev_label,label);
+  Uint64Vector point_ids;
+  point_ids.push_back(point_id);
+  return UpdateLabels(point_ids,prev_label,label);
 }
 
 RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::UpdateLabels(
-  const uint64 point_id,const uint64 prev_label,const uint64 next_label)
+  const Uint64Vector & point_ids,const uint64 prev_label,const uint64 next_label)
 {
-  m_labels_assoc[point_id] = next_label;
-
   BoolVector touched;
   RegenerateLabelAssoc(touched);
 
@@ -116,7 +123,7 @@ void RVizCloudAnnotationPoints::RegenerateLabelAssoc(BoolVector & touched)
   touched.clear();
   touched.resize(m_control_points.size(),false);
   for (uint64 i = 0; i < m_control_points.size(); i++)
-    touched[i] = true;
+    touched[i] = true; // TODO: smarter
 
   Uint64Queue queue;
   BoolVector in_queue(m_cloud_size,false);
@@ -165,6 +172,25 @@ void RVizCloudAnnotationPoints::RegenerateLabelAssoc(BoolVector & touched)
       }
     }
   }
+}
+
+RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::ClearLabel(const uint64 label)
+{
+  if (label == 0)
+    return Uint64Vector();
+  if (label > m_control_points.size())
+    return Uint64Vector();
+
+  const Uint64Vector control_points = m_control_points[label - 1];
+  if (control_points.empty())
+    return Uint64Vector();
+
+  m_control_points[label - 1].clear();
+
+  for (uint64 i = 0; i < control_points.size(); i++)
+    m_control_points_assoc[control_points[i]] = 0;
+
+  return UpdateLabels(control_points,label,0);
 }
 
 void RVizCloudAnnotationPoints::SetNameForLabel(const uint64 label,const std::string & name)
