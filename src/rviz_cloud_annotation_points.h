@@ -71,7 +71,7 @@ class RVizCloudAnnotationPoints
 
   void SetNameForLabel(const uint64 label,const std::string & name);
 
-  uint64 GetMaxLabel() const {return m_control_points.size() + 1; }
+  uint64 GetNextLabel() const {return m_control_points.size() + 1; }
   uint64 GetCloudSize() const {return m_cloud_size; }
 
   uint64 GetLabelPointCount(const uint64 label) const

@@ -85,14 +85,16 @@ class RVizCloudAnnotation
 
   void onClear(const std_msgs::UInt32 & /*label_msg*/)
   {
-    const uint64 old_max_label = m_annotation->GetMaxLabel();
-    ClearControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),false);
+    const uint64 old_max_label = m_annotation->GetNextLabel();
+    ClearControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),false);
     m_annotation->Clear();
     SendPointCounts(RangeUint64(1,old_max_label));
-    SendControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),true);
+    SendControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),true);
   }
 
   void onClickOnCloud(const InteractiveMarkerFeedbackConstPtr & feedback_ptr);
+  std::string GetClickType(const std::string & marker_name,uint64 & label_out) const;
+  uint64 GetClickedPointId(const InteractiveMarkerFeedback & click_feedback,bool & ok);
 
   void SetCurrentLabel(const uint64 label)
   {

@@ -112,10 +112,10 @@ namespace rviz_cloud_annotation
 
       m_toolbar_group = new QButtonGroup(this);
 
-      m_edit_none_button = new QPushButton("&Move",this);
+      m_edit_none_button = new QPushButton("&None",this);
       m_edit_none_button->setCheckable(true);
       m_edit_none_button->setChecked(true);
-      m_edit_none_button->setShortcut(QKeySequence("M"));
+      m_edit_none_button->setShortcut(QKeySequence("N"));
       toolbar_layout->addWidget(m_edit_none_button);
       m_toolbar_group->addButton(m_edit_none_button,EDIT_MODE_NONE);
 

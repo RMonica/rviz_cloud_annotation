@@ -1,5 +1,11 @@
 #include "rviz_cloud_annotation_class.h"
 
+#include <cstring>
+
+#define CLOUD_MARKER_NAME            "cloud"
+#define CONTROL_POINT_MARKER_PREFIX  "control_points_"
+#define LABEL_POINT_MARKER_PREFIX    "label_points_"
+
 RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
 {
   std::string param_string;
@@ -101,7 +107,7 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarke
 
   InteractiveMarker marker;
   marker.header.frame_id = m_frame_id;
-  marker.name = std::string("control_points_") + boost::lexical_cast<std::string>(label);
+  marker.name = std::string(CONTROL_POINT_MARKER_PREFIX) + boost::lexical_cast<std::string>(label);
   marker.description = "";
 
   const pcl::RGB color = pcl::GlasbeyLUT::at((label - 1) % 256);
@@ -155,7 +161,7 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
 
   InteractiveMarker marker;
   marker.header.frame_id = m_frame_id;
-  marker.name = std::string("label_points_") + boost::lexical_cast<std::string>(label);
+  marker.name = std::string(LABEL_POINT_MARKER_PREFIX) + boost::lexical_cast<std::string>(label);
   marker.description = "";
 
   marker.pose.position.x = 0.0;
@@ -201,7 +207,7 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::CloudToMarker(const 
 
   InteractiveMarker marker;
   marker.header.frame_id = m_frame_id;
-  marker.name = "cloud";
+  marker.name = CLOUD_MARKER_NAME;
   marker.description = "";
 
   marker.pose.position.x = 0.0;
@@ -277,11 +283,11 @@ void RVizCloudAnnotation::Restore(const std::string & filename)
 
   m_annotation->ExpandControlPointsUntil(m_current_label);
 
-  ClearControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),false);
+  ClearControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),false);
   m_annotation = maybe_new_annotation;
-  SendControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),true);
+  SendControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),true);
   SendName();
-  SendPointCounts(RangeUint64(1,m_annotation->GetMaxLabel()));
+  SendPointCounts(RangeUint64(1,m_annotation->GetNextLabel()));
 
   ROS_INFO("rviz_cloud_annotation: file loaded.");
 }
@@ -321,7 +327,7 @@ void RVizCloudAnnotation::onSave(const std_msgs::String & filename_msg)
   ROS_INFO("rviz_cloud_annotation: saving names: %s",m_label_names_filename_out.c_str());
   {
     std::ofstream ofile(m_label_names_filename_out.c_str());
-    for (uint64 i = 1; i < m_annotation->GetMaxLabel(); i++)
+    for (uint64 i = 1; i < m_annotation->GetNextLabel(); i++)
       ofile << i << ": " << m_annotation->GetNameForLabel(i) << "\n";
     if (!ofile)
       ROS_ERROR("rviz_cloud_annotation: could not write file.");
@@ -375,8 +381,126 @@ void RVizCloudAnnotation::SetEditMode(const uint64 new_edit_mode)
   if (send_cloud)
   {
     SendCloudMarker(false);
-    SendControlPointsMarker(RangeUint64(1,m_annotation->GetMaxLabel()),true);
+    SendControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),true);
   }
+}
+
+std::string RVizCloudAnnotation::GetClickType(const std::string & marker_name,uint64 & label_out) const
+{
+  label_out = 0;
+  if (marker_name == CLOUD_MARKER_NAME)
+    return CLOUD_MARKER_NAME;
+
+  std::string result;
+  std::string num_str;
+  if (marker_name.substr(0,std::strlen(CONTROL_POINT_MARKER_PREFIX)) == CONTROL_POINT_MARKER_PREFIX)
+  {
+    result = CONTROL_POINT_MARKER_PREFIX;
+    num_str = marker_name.substr(std::strlen(CONTROL_POINT_MARKER_PREFIX));
+  }
+  else if (marker_name.substr(0,std::strlen(LABEL_POINT_MARKER_PREFIX)) == LABEL_POINT_MARKER_PREFIX)
+  {
+    result = LABEL_POINT_MARKER_PREFIX;
+    num_str = marker_name.substr(std::strlen(LABEL_POINT_MARKER_PREFIX));
+  }
+  else
+  {
+    ROS_ERROR("rviz_cloud_annotation: click: unsupported marker name in message: %s",marker_name.c_str());
+    return "";
+  }
+
+  try
+  {
+    label_out = boost::lexical_cast<uint64>(num_str);
+  }
+  catch (const boost::bad_lexical_cast &)
+  {
+    ROS_ERROR("rviz_cloud_annotation: click: could not convert %s to number.",num_str.c_str());
+    return "";
+  }
+
+  return result;
+}
+
+RVizCloudAnnotation::uint64 RVizCloudAnnotation::GetClickedPointId(const InteractiveMarkerFeedback & click_feedback,bool & ok)
+{
+  ok = false;
+  const std::string marker_name = click_feedback.marker_name;
+
+  uint64 label;
+  std::string click_type = GetClickType(marker_name,label);
+
+  if (click_type == CLOUD_MARKER_NAME || click_type == LABEL_POINT_MARKER_PREFIX)
+  {
+    ROS_INFO("rviz_cloud_annotation: clicked on cloud point.");
+
+    PointXYZRGBNormal click_pt;
+    click_pt.x = click_feedback.mouse_point.x;
+    click_pt.y = click_feedback.mouse_point.y;
+    click_pt.z = click_feedback.mouse_point.z;
+
+    ROS_INFO("rviz_cloud_annotation: click at: %f %f %f",float(click_pt.x),float(click_pt.y),float(click_pt.z));
+
+    std::vector<int> idxs(1);
+    std::vector<float> dsts(1);
+
+    if (m_kdtree->nearestKSearch(click_pt,1,idxs,dsts) <= 0)
+    {
+      ROS_WARN("rviz_cloud_annotation: point was clicked, but no nearest cloud point found.");
+      return 0;
+    }
+
+    const uint64 idx = idxs[0];
+    const float dst = std::sqrt(dsts[0]);
+
+    ROS_INFO("rviz_cloud_annotation: clicked on point: %u (accuracy: %f)",(unsigned int)(idx),float(dst));
+
+    ok = true;
+    return idx;
+  }
+
+  if (click_type == CONTROL_POINT_MARKER_PREFIX)
+  {
+    if (label == 0 || label >= m_annotation->GetNextLabel())
+    {
+      ROS_ERROR("rviz_cloud_annotation: click: invalid control point label %u",(unsigned int)(label));
+      return 0;
+    }
+
+    const Uint64Vector & control_points = m_annotation->GetControlPointList(label);
+    if (control_points.empty())
+    {
+      ROS_ERROR("rviz_cloud_annotation: click: control point label %u is empty!",(unsigned int)(label));
+      return 0;
+    }
+
+    const Eigen::Vector3f click_pt(click_feedback.mouse_point.x,click_feedback.mouse_point.y,click_feedback.mouse_point.z);
+
+    uint64 nearest_idx;
+    float nearest_sqr_dist;
+    for (uint64 i = 0; i < control_points.size(); i++)
+    {
+      const PointXYZRGBNormal & pt = (*m_cloud)[control_points[i]];
+      const Eigen::Vector3f ept(pt.x,pt.y,pt.z);
+      const Eigen::Vector3f en(pt.normal_x,pt.normal_y,pt.normal_z);
+      const Eigen::Vector3f shift_pt = ept + en * m_control_label_size / 2.0;
+      if (i == 0 || (shift_pt - click_pt).squaredNorm() < nearest_sqr_dist)
+      {
+        nearest_idx = i;
+        nearest_sqr_dist = (shift_pt - click_pt).squaredNorm();
+      }
+    }
+
+    const uint64 idx = control_points[nearest_idx];
+
+    ROS_INFO("rviz_cloud_annotation: clicked on control point: %u (accuracy: %f)",
+             (unsigned int)(idx),float(std::sqrt(nearest_sqr_dist)));
+
+    ok = true;
+    return idx;
+  }
+
+  return 0;
 }
 
 void RVizCloudAnnotation::onClickOnCloud(const InteractiveMarkerFeedbackConstPtr & feedback_ptr)
@@ -393,32 +517,16 @@ void RVizCloudAnnotation::onClickOnCloud(const InteractiveMarkerFeedbackConstPtr
   if (type != InteractiveMarkerFeedback::BUTTON_CLICK)
     return; // not a click
 
-  ROS_INFO("rviz_cloud_annotation: click event (marker: %s, control: %s).",
-           feedback_ptr->marker_name.c_str(),feedback_ptr->control_name.c_str());
+  ROS_INFO("rviz_cloud_annotation: click event (marker: %s).",feedback_ptr->marker_name.c_str());
 
   if (!feedback.mouse_point_valid)
     return; // invalid point
 
-  PointXYZRGBNormal click_pt;
-  click_pt.x = feedback.mouse_point.x;
-  click_pt.y = feedback.mouse_point.y;
-  click_pt.z = feedback.mouse_point.z;
+  bool ok;
+  const uint64 idx = GetClickedPointId(feedback,ok);
 
-  ROS_INFO("rviz_cloud_annotation: click at: %f %f %f",float(click_pt.x),float(click_pt.y),float(click_pt.z));
-
-  std::vector<int> idxs(1);
-  std::vector<float> dsts(1);
-
-  if (m_kdtree->nearestKSearch(click_pt,1,idxs,dsts) <= 0)
-  {
-    ROS_WARN("rviz_cloud_annotation: point was clicked, but no nearest cloud point found.");
+  if (!ok)
     return;
-  }
-
-  const uint64 idx = idxs[0];
-  const float dst = std::sqrt(dsts[0]);
-
-  ROS_INFO("rviz_cloud_annotation: clicked on point: %u (accuracy: %f)",(unsigned int)(idx),float(dst));
 
   if (m_edit_mode == EDIT_MODE_CONTROL_POINT)
   {

@@ -70,7 +70,7 @@ float PointNeighborhood::TotalDistance(const PointXYZRGBNormal & a,const PointXY
 
   float spatial_dist = (epta - eptb).norm() / conf.max_distance;
   float color_dist = (eca - ecb).norm() / 255.0f;
-  float cos_angle_normal = 1.0f - std::abs(ena.dot(enb));
+  float cos_angle_normal = 1.0f - ena.dot(enb);
   return spatial_dist * conf.position_importance + cos_angle_normal * conf.normal_importance + color_dist * conf.color_importance;
 }
 
