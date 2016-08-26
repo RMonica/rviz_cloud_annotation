@@ -14,6 +14,7 @@ class QLabel;
 class QPushButton;
 class QButtonGroup;
 class QLineEdit;
+class QAction;
 
 namespace rviz_cloud_annotation
 {
@@ -93,9 +94,14 @@ namespace rviz_cloud_annotation
 
     QPushButton * m_prev_page_button;
     QPushButton * m_next_page_button;
-    QLabel * m_current_page_label;
     QPushButton * m_next_label_button;
     QPushButton * m_prev_label_button;
+
+    QAction * m_prev_page_action;
+    QAction * m_next_page_action;
+    QLabel * m_current_page_label;
+    QAction * m_next_label_action;
+    QAction * m_prev_label_action;
 
     PQPushButtonVector m_page_buttons;
     QButtonGroup * m_page_button_group;
