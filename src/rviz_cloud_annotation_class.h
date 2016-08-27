@@ -163,7 +163,7 @@ class RVizCloudAnnotation
   void onSetName(const std_msgs::String & msg)
   {
     m_annotation->SetNameForLabel(m_current_label,msg.data);
-    ROS_INFO("rviz_cloud_annotation: label %u has now name %s.",uint(m_current_label),msg.data.c_str());
+    ROS_INFO("rviz_cloud_annotation: label %u is now named \"%s\".",uint(m_current_label),msg.data.c_str());
     SendName();
   }
 
