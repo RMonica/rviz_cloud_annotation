@@ -8,6 +8,7 @@
 #include <istream>
 #include <ostream>
 #include <queue>
+#include <set>
 
 // PCL
 #include <pcl/point_cloud.h>
@@ -33,6 +34,7 @@ class RVizCloudAnnotationPoints
   typedef std::queue<uint64> Uint64Queue;
   typedef std::vector<bool> BoolVector;
   typedef std::vector<std::string> StringVector;
+  typedef std::set<uint64> Uint64Set;
 
   typedef boost::shared_ptr<const RVizCloudAnnotationPoints> ConstPtr;
   typedef boost::shared_ptr<RVizCloudAnnotationPoints> Ptr;
@@ -94,6 +96,20 @@ class RVizCloudAnnotationPoints
   private:
   void RegenerateControlPointsAssoc();
   void RegenerateLabelAssoc(BoolVector & touched);
+  void UpdateLabelAssocAdded(const Uint64Vector & added_indices,const uint32 added_label,BoolVector & touched);
+  void UpdateLabelAssocDeleted(const Uint64Vector & removed_indices,const uint32 removed_label,BoolVector & touched);
+  static void RunRegionGrowing(const uint64 cloud_size,
+                               const Uint64VectorVector & control_points,
+                               const PointNeighborhood & point_neighborhood,
+                               Uint32Vector & labels_assoc,
+                               FloatVector & last_generated_tot_dists,
+                               BoolVector & touched);
+  static void UpdateRegionGrowing(const uint64 cloud_size,
+                                  const PointNeighborhood & point_neighborhood,
+                                  const Uint64Vector & seeds,
+                                  Uint32Vector & labels_assoc,
+                                  FloatVector & last_generated_tot_dists,
+                                  BoolVector & touched);
 
   Uint32Vector m_control_points_assoc;
   Uint32Vector m_labels_assoc;
@@ -101,7 +117,6 @@ class RVizCloudAnnotationPoints
   Uint64VectorVector m_control_points;
   uint64 m_cloud_size;
 
-  FloatVector m_last_generated_dists;
   FloatVector m_last_generated_tot_dists;
 
   StringVector m_control_point_names;

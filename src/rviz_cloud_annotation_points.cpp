@@ -13,7 +13,6 @@ RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size,
 
   m_control_points_assoc.resize(m_cloud_size,0);
   m_labels_assoc.resize(m_cloud_size,0);
-  m_last_generated_dists.resize(m_cloud_size,0.0);
   m_last_generated_tot_dists.resize(m_cloud_size,0.0);
 
   m_point_neighborhood = neighborhood;
@@ -28,14 +27,12 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::Clear()
 
   m_control_points_assoc.clear();
   m_labels_assoc.clear();
-  m_last_generated_dists.clear();
   m_last_generated_tot_dists.clear();
   m_control_points.clear();
   m_control_point_names.clear();
 
   m_control_points_assoc.resize(m_cloud_size,0);
   m_labels_assoc.resize(m_cloud_size,0);
-  m_last_generated_dists.resize(m_cloud_size,0.0);
   m_last_generated_tot_dists.resize(m_cloud_size,0.0);
 
   return result;
@@ -78,11 +75,33 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::UpdateLabels(
   const Uint64Vector & point_ids,const uint64 prev_label,const uint64 next_label)
 {
   BoolVector touched;
+
+  //pcl::console::TicToc tictoc;
+  //tictoc.tic();
+
+  if (prev_label == 0 && next_label != 0)
+    UpdateLabelAssocAdded(point_ids,next_label,touched);
+  else if (prev_label != 0 && next_label == 0)
+    UpdateLabelAssocDeleted(point_ids,prev_label,touched);
+  else
+    RegenerateLabelAssoc(touched);
+/*
+  Uint32Vector prev_lbl = m_labels_assoc;
   RegenerateLabelAssoc(touched);
+  if (prev_lbl != m_labels_assoc)
+    std::cout << "ERROR!" << std::endl;
+*/
+  //tictoc.toc_print();
+
+  if (prev_label != 0)
+    touched[prev_label - 1] = true;
+  if (next_label != 0)
+    touched[next_label - 1] = true;
 
   Uint64Vector result;
   for (uint64 i = 0; i < touched.size(); i++)
-    result.push_back(i + 1);
+    if (touched[i])
+      result.push_back(i + 1);
   return result;
 }
 
@@ -111,30 +130,21 @@ void RVizCloudAnnotationPoints::RegenerateControlPointsAssoc()
   }
 }
 
-void RVizCloudAnnotationPoints::RegenerateLabelAssoc(BoolVector & touched)
+void RVizCloudAnnotationPoints::UpdateRegionGrowing(const uint64 cloud_size,
+                                                    const PointNeighborhood & point_neighborhood,
+                                                    const Uint64Vector & seeds,
+                                                    Uint32Vector & labels_assoc,
+                                                    FloatVector & last_generated_tot_dists,
+                                                    BoolVector & touched)
 {
-  for (uint64 i = 0; i < m_cloud_size; i++)
-  {
-    m_labels_assoc[i] = 0;
-    m_last_generated_dists[i] = 0.0;
-    m_last_generated_tot_dists[i] = 0.0;
-  }
-
-  touched.clear();
-  touched.resize(m_control_points.size(),false);
-  for (uint64 i = 0; i < m_control_points.size(); i++)
-    touched[i] = true; // TODO: smarter
-
   Uint64Queue queue;
-  BoolVector in_queue(m_cloud_size,false);
-  for (uint64 i = 0; i < m_control_points.size(); i++)
-    for (uint64 h = 0; h < m_control_points[i].size(); h++)
-    {
-      const uint64 first = m_control_points[i][h];
-      queue.push(first);
-      m_labels_assoc[first] = i + 1;
-      in_queue[first] = true;
-    }
+  BoolVector in_queue(cloud_size,false);
+  for (uint64 i = 0; i < seeds.size(); i++)
+  {
+    const uint64 first = seeds[i];
+    queue.push(first);
+    in_queue[first] = true;
+  }
 
   while (!queue.empty())
   {
@@ -142,28 +152,32 @@ void RVizCloudAnnotationPoints::RegenerateLabelAssoc(BoolVector & touched)
     queue.pop();
     in_queue[current] = false;
 
-    const float current_tot_dist = m_last_generated_tot_dists[current];
-    const uint32 current_label = m_labels_assoc[current];
+    const float current_tot_dist = last_generated_tot_dists[current];
+    const uint32 current_label = labels_assoc[current];
 
     const float * neigh_dists;
     const float * neigh_tot_dists;
     const uint64 * neighs;
-    const uint64 neighs_size = m_point_neighborhood->GetNeigborhoodAsPointer(current,neighs,neigh_tot_dists,neigh_dists);
+    const uint64 neighs_size = point_neighborhood.GetNeigborhoodAsPointer(current,neighs,neigh_tot_dists,neigh_dists);
 
     for (uint64 i = 0; i < neighs_size; i++)
     {
       const uint64 next = neighs[i];
       const float next_tot_dist = neigh_tot_dists[i] + current_tot_dist;
-      const uint32 next_label = m_labels_assoc[next];
+      const uint32 next_label = labels_assoc[next];
 
       if (next_tot_dist > 1.0)
         continue;
 
-      if (next_label != 0 && m_last_generated_tot_dists[next] <= next_tot_dist)
+      if (next_label != 0 && last_generated_tot_dists[next] <= next_tot_dist)
         continue;
 
-      m_last_generated_tot_dists[next] = next_tot_dist;
-      m_labels_assoc[next] = current_label;
+      if (next_label != 0)
+        touched[next_label - 1] = true;
+      touched[current_label - 1] = true;
+
+      last_generated_tot_dists[next] = next_tot_dist;
+      labels_assoc[next] = current_label;
 
       if (!in_queue[next])
       {
@@ -172,6 +186,97 @@ void RVizCloudAnnotationPoints::RegenerateLabelAssoc(BoolVector & touched)
       }
     }
   }
+}
+
+void RVizCloudAnnotationPoints::RunRegionGrowing(const uint64 cloud_size,
+                                                 const Uint64VectorVector & control_points,
+                                                 const PointNeighborhood & point_neighborhood,
+                                                 Uint32Vector & labels_assoc,
+                                                 FloatVector & last_generated_tot_dists,
+                                                 BoolVector & touched)
+{
+  for (uint64 i = 0; i < cloud_size; i++)
+  {
+    labels_assoc[i] = 0;
+    last_generated_tot_dists[i] = 0.0;
+  }
+
+  touched.clear();
+  touched.resize(control_points.size(),false);
+
+  Uint64Vector seeds;
+  for (uint64 i = 0; i < control_points.size(); i++)
+    for (uint64 h = 0; h < control_points[i].size(); h++)
+    {
+      const uint64 first = control_points[i][h];
+      seeds.push_back(first);
+      labels_assoc[first] = i + 1;
+      last_generated_tot_dists[first] = 0.0;
+    }
+
+  UpdateRegionGrowing(cloud_size,point_neighborhood,seeds,labels_assoc,last_generated_tot_dists,touched);
+}
+
+void RVizCloudAnnotationPoints::RegenerateLabelAssoc(BoolVector & touched)
+{
+  return RunRegionGrowing(m_cloud_size,m_control_points,*m_point_neighborhood,m_labels_assoc,m_last_generated_tot_dists,touched);
+}
+
+void RVizCloudAnnotationPoints::UpdateLabelAssocAdded(const Uint64Vector & added_indices,
+                                                      const uint32 added_label,BoolVector & touched)
+{
+  touched.clear();
+  touched.resize(m_control_points.size(),false);
+  touched[added_label - 1] = true; // we are adding it
+
+  for (uint64 i = 0; i < added_indices.size(); i++)
+  {
+    m_labels_assoc[added_indices[i]] = added_label;
+    m_last_generated_tot_dists[added_indices[i]] = 0.0;
+  }
+
+  UpdateRegionGrowing(m_cloud_size,*m_point_neighborhood,added_indices,m_labels_assoc,m_last_generated_tot_dists,touched);
+}
+
+void RVizCloudAnnotationPoints::UpdateLabelAssocDeleted(const Uint64Vector & removed_indices,
+                                                        const uint32 removed_label,BoolVector & touched)
+{
+  touched.clear();
+  touched.resize(m_control_points.size(),false);
+  touched[removed_label - 1] = true; // we are removing it
+
+  Uint64Vector seeds(m_control_points[removed_label - 1]); // all the control points of the removed label are seeds
+  Uint64Set other_seeds;
+
+  for (uint64 i = 0; i < m_cloud_size; i++)
+    if (m_labels_assoc[i] == removed_label)
+    {
+      const float * neigh_dists;
+      const float * neigh_tot_dists;
+      const uint64 * neighs;
+      const uint64 neighs_size = m_point_neighborhood->GetNeigborhoodAsPointer(i,neighs,neigh_tot_dists,neigh_dists);
+
+      for (uint64 h = 0; h < neighs_size; h++)
+      {
+        const uint32 label = m_labels_assoc[neighs[h]];
+        if (label != 0 && label != removed_label)
+          other_seeds.insert(neighs[h]);
+      }
+
+      m_labels_assoc[i] = 0;
+      m_last_generated_tot_dists[i] = 0.0;
+    }
+
+  for (uint64 i = 0; i < seeds.size(); i++)
+  {
+    m_labels_assoc[seeds[i]] = removed_label; // restore labels at control points
+    m_last_generated_tot_dists[seeds[i]] = 0.0;
+  }
+
+  // do NOT set the m_last_generated_tot_dists at the other seeds to zero, since their label is not going to change
+  seeds.insert(seeds.end(),other_seeds.begin(),other_seeds.end());
+
+  UpdateRegionGrowing(m_cloud_size,*m_point_neighborhood,seeds,m_labels_assoc,m_last_generated_tot_dists,touched);
 }
 
 RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::ClearLabel(const uint64 label)
