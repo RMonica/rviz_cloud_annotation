@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2016, Riccardo Monica
+ */
+
 #ifndef POINT_NEIGHBORHOOD_H
 #define POINT_NEIGHBORHOOD_H
 

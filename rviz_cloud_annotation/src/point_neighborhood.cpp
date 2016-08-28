@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2016, Riccardo Monica
+ */
+
 #include "point_neighborhood.h"
 
 #include <Eigen/Dense>

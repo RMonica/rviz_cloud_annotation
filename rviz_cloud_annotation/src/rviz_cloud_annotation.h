@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2016, Riccardo Monica
+ */
+
 #ifndef RVIZ_CLOUD_ANNOTATION_H
 #define RVIZ_CLOUD_ANNOTATION_H
 

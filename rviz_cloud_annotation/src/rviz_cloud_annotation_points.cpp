@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2016, Riccardo Monica
+ */
+
 #include "rviz_cloud_annotation_points.h"
 
 #include <boost/lexical_cast.hpp>

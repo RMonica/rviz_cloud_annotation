@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2016, Riccardo Monica
+ */
+
 #include "rviz_cloud_annotation_class.h"
 
 #include <cstring>
