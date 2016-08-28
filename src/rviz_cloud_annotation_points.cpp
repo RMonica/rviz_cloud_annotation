@@ -5,6 +5,7 @@
 #include "rviz_cloud_annotation.h"
 
 #include <pcl/console/time.h>
+#define DEBUG_SELF_TEST false
 
 RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size,
                                                      const PointNeighborhood::ConstPtr neighborhood)
@@ -76,22 +77,31 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::UpdateLabels(
 {
   BoolVector touched;
 
-  //pcl::console::TicToc tictoc;
-  //tictoc.tic();
+  pcl::console::TicToc tictoc;
+  if (DEBUG_SELF_TEST)
+    tictoc.tic();
 
   if (prev_label == 0 && next_label != 0)
     UpdateLabelAssocAdded(point_ids,next_label,touched);
   else if (prev_label != 0 && next_label == 0)
     UpdateLabelAssocDeleted(point_ids,prev_label,touched);
+  else if (prev_label != 0 && next_label != 0)
+    UpdateLabelAssocChanged(point_ids,next_label,prev_label,touched);
   else
     RegenerateLabelAssoc(touched);
-/*
-  Uint32Vector prev_lbl = m_labels_assoc;
-  RegenerateLabelAssoc(touched);
-  if (prev_lbl != m_labels_assoc)
-    std::cout << "ERROR!" << std::endl;
-*/
-  //tictoc.toc_print();
+
+  if (DEBUG_SELF_TEST)
+  {
+    tictoc.toc_print();
+
+    Uint32Vector prev_lbl = m_labels_assoc;
+    tictoc.tic();
+    RegenerateLabelAssoc(touched);
+    tictoc.toc_print();
+    if (prev_lbl != m_labels_assoc)
+      std::cout << "SELF TEST ERROR!" << std::endl;
+    m_labels_assoc = prev_lbl;
+  }
 
   if (prev_label != 0)
     touched[prev_label - 1] = true;
@@ -275,6 +285,40 @@ void RVizCloudAnnotationPoints::UpdateLabelAssocDeleted(const Uint64Vector & rem
 
   // do NOT set the m_last_generated_tot_dists at the other seeds to zero, since their label is not going to change
   seeds.insert(seeds.end(),other_seeds.begin(),other_seeds.end());
+
+  UpdateRegionGrowing(m_cloud_size,*m_point_neighborhood,seeds,m_labels_assoc,m_last_generated_tot_dists,touched);
+}
+
+void RVizCloudAnnotationPoints::UpdateLabelAssocChanged(const Uint64Vector & changed_indices,const uint32 added_label,
+                                                        const uint32 removed_label,BoolVector & touched)
+{
+  touched.clear();
+  touched.resize(m_control_points.size(),false);
+  touched[added_label - 1] = true;
+  touched[removed_label - 1] = true;
+
+  Uint64Vector seeds(m_control_points[removed_label - 1]); // all the control points of the removed label are seeds
+
+  for (uint64 i = 0; i < m_cloud_size; i++)
+    if (m_labels_assoc[i] == removed_label)
+    {
+      m_labels_assoc[i] = 0;
+      m_last_generated_tot_dists[i] = 0.0;
+    }
+
+  for (uint64 i = 0; i < seeds.size(); i++)
+  {
+    m_labels_assoc[seeds[i]] = removed_label; // restore labels at control points
+    m_last_generated_tot_dists[seeds[i]] = 0.0;
+  }
+
+  for (uint64 i = 0; i < changed_indices.size(); i++)
+  {
+    m_labels_assoc[changed_indices[i]] = added_label; // restore labels at changed points
+    m_last_generated_tot_dists[changed_indices[i]] = 0.0;
+  }
+
+  seeds.insert(seeds.end(),changed_indices.begin(),changed_indices.end());
 
   UpdateRegionGrowing(m_cloud_size,*m_point_neighborhood,seeds,m_labels_assoc,m_last_generated_tot_dists,touched);
 }

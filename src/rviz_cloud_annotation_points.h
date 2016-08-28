@@ -98,6 +98,8 @@ class RVizCloudAnnotationPoints
   void RegenerateLabelAssoc(BoolVector & touched);
   void UpdateLabelAssocAdded(const Uint64Vector & added_indices,const uint32 added_label,BoolVector & touched);
   void UpdateLabelAssocDeleted(const Uint64Vector & removed_indices,const uint32 removed_label,BoolVector & touched);
+  void UpdateLabelAssocChanged(const Uint64Vector & changed_indices,const uint32 added_label,
+                               const uint32 removed_label,BoolVector & touched);
   static void RunRegionGrowing(const uint64 cloud_size,
                                const Uint64VectorVector & control_points,
                                const PointNeighborhood & point_neighborhood,
