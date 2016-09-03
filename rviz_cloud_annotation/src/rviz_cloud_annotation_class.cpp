@@ -302,8 +302,6 @@ void RVizCloudAnnotation::Restore(const std::string & filename)
               new_size,old_size);
   }
 
-  m_annotation->ExpandControlPointsUntil(m_current_label);
-
   ClearControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),false);
   m_annotation = maybe_new_annotation;
   SendControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),true);

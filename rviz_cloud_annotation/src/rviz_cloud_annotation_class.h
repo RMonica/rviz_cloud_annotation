@@ -119,7 +119,6 @@ class RVizCloudAnnotation
       return;
 
     m_current_label = label;
-    m_annotation->ExpandControlPointsUntil(m_current_label);
     ROS_INFO("rviz_cloud_annotation: label is now: %u",(unsigned int)(m_current_label));
     SendName();
 

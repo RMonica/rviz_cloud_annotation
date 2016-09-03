@@ -55,14 +55,13 @@ class RVizCloudAnnotationPoints
     PointNeighborhood::ConstPtr neighborhood);
   void Serialize(std::ostream & ofile) const;
 
-  // returns the old label
+  // returns the list of affected labels
   Uint64Vector SetControlPoint(const uint64 point_id,const uint64 label);
+  Uint64Vector Clear();
+  Uint64Vector ClearLabel(const uint64 label); // clear label, returns list of affected labels
+  void SetNameForLabel(const uint64 label,const std::string & name);
 
-  // returns a list of labels affected by the label update
-  Uint64Vector UpdateLabels(const Uint64Vector & point_ids,const uint64 prev_label,const uint64 next_label);
-
-  //const Uint64VectorVector & GetControlPoints() const {return m_control_points; }
-  const Uint64Vector & GetControlPointList(const uint64 label) const {return m_control_points[label - 1]; }
+  Uint64Vector GetControlPointList(const uint64 label) const;
   Uint64Vector GetLabelPointList(const uint64 label) const;
 
   // 0 if none
@@ -70,34 +69,33 @@ class RVizCloudAnnotationPoints
 
   std::string GetNameForLabel(const uint64 label) const
   {
-    if (label > m_control_point_names.size())
+    if (label > GetMaxLabel())
       return "";
     return m_control_point_names[label - 1];
   }
 
-  void SetNameForLabel(const uint64 label,const std::string & name);
-
   uint64 GetNextLabel() const {return m_control_points.size() + 1; }
+  uint64 GetMaxLabel() const {return m_control_points.size(); }
   uint64 GetCloudSize() const {return m_cloud_size; }
 
   uint64 GetLabelPointCount(const uint64 label) const
   {
-    if (label > m_control_point_names.size())
+    if (label > GetMaxLabel())
       return 0;
     return m_control_points[label - 1].size();
   }
-
-  void ExpandControlPointsUntil(const uint64 label);
 
   template <class PointT>
     void LabelCloud(pcl::PointCloud<PointT> & cloud) const;
   template <class PointT>
     void LabelCloudWithColor(pcl::PointCloud<PointT> & cloud) const;
 
-  Uint64Vector Clear();
-  Uint64Vector ClearLabel(const uint64 label); // clear label, returns list of affected markers
-
   private:
+  // returns a list of labels affected by the label update
+  Uint64Vector UpdateLabels(const Uint64Vector & point_ids,const uint64 prev_label,const uint64 next_label);
+
+  void ExpandControlPointsUntil(const uint64 label);
+
   void RegenerateControlPointsAssoc();
   void RegenerateLabelAssoc(BoolVector & touched);
   void UpdateLabelAssocAdded(const Uint64Vector & added_indices,const uint32 added_label,BoolVector & touched);

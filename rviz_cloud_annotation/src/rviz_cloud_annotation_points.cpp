@@ -119,9 +119,20 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::UpdateLabels(
   return result;
 }
 
+RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::GetControlPointList(const uint64 label) const
+{
+  if (label > GetMaxLabel())
+    return Uint64Vector();
+
+  return m_control_points[label - 1];
+}
+
 RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::GetLabelPointList(const uint64 label) const
 {
   Uint64Vector result;
+
+  if (label > GetMaxLabel())
+    return result;
 
   for (uint64 i = 0; i < m_cloud_size; i++)
     if (m_labels_assoc[i] == label)
@@ -331,7 +342,7 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::ClearLabel(co
 {
   if (label == 0)
     return Uint64Vector();
-  if (label > m_control_points.size())
+  if (label > GetMaxLabel())
     return Uint64Vector();
 
   const Uint64Vector control_points = m_control_points[label - 1];
@@ -354,7 +365,7 @@ void RVizCloudAnnotationPoints::SetNameForLabel(const uint64 label,const std::st
 
 void RVizCloudAnnotationPoints::ExpandControlPointsUntil(const uint64 label)
 {
-  if (m_control_points.size() >= label)
+  if (label <= GetMaxLabel())
     return;
 
   m_control_points.resize(label);
