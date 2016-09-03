@@ -4,6 +4,7 @@
 
 #include "rviz_cloud_annotation_plugin.h"
 #include "rviz_cloud_annotation.h"
+#include <rviz_cloud_annotation/UndoRedoState.h>
 
 // QT
 #include <QShortcut>
@@ -103,6 +104,15 @@ namespace rviz_cloud_annotation
 
       m_nh.param<std::string>(PARAM_NAME_VIEW_LABEL_TOPIC,param_string,PARAM_DEFAULT_VIEW_LABEL_TOPIC);
       m_view_labels_pub = m_nh.advertise<std_msgs::Bool>(param_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_UNDO_TOPIC,param_string,PARAM_DEFAULT_UNDO_TOPIC);
+      m_undo_pub = m_nh.advertise<std_msgs::Empty>(param_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_REDO_TOPIC,param_string,PARAM_DEFAULT_REDO_TOPIC);
+      m_redo_pub = m_nh.advertise<std_msgs::Empty>(param_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_UNDO_REDO_STATE_TOPIC,param_string,PARAM_DEFAULT_UNDO_REDO_STATE_TOPIC);
+      m_undo_redo_state_sub = m_nh.subscribe(param_string,1,&QRVizCloudAnnotation::onUndoRedoState,this);
     }
 
     QBoxLayout * main_layout = new QBoxLayout(QBoxLayout::TopToBottom,this);
@@ -124,6 +134,20 @@ namespace rviz_cloud_annotation
       QAction * restore_action = new QAction("Restore",menu_bar);
       file_menu->addAction(restore_action);
       connect(restore_action,&QAction::triggered,this,&QRVizCloudAnnotation::onRestore,Qt::QueuedConnection);
+
+      QMenu * edit_menu = menu_bar->addMenu("Edit");
+
+      m_undo_action = new QAction("Undo",menu_bar);
+      m_undo_action->setEnabled(false);
+      m_undo_action->setShortcut(QKeySequence("U"));
+      edit_menu->addAction(m_undo_action);
+      connect(m_undo_action,&QAction::triggered,this,&QRVizCloudAnnotation::onUndo);
+
+      m_redo_action = new QAction("Redo",menu_bar);
+      m_redo_action->setEnabled(false);
+      m_redo_action->setShortcut(QKeySequence("Shift+U"));
+      edit_menu->addAction(m_redo_action);
+      connect(m_redo_action,&QAction::triggered,this,&QRVizCloudAnnotation::onRedo);
 
       QMenu * label_menu = menu_bar->addMenu("Label");
 
@@ -275,6 +299,40 @@ namespace rviz_cloud_annotation
   QRVizCloudAnnotation::~QRVizCloudAnnotation()
   {
 
+  }
+
+  void QRVizCloudAnnotation::onUndo()
+  {
+    m_undo_pub.publish(std_msgs::Empty());
+  }
+
+  void QRVizCloudAnnotation::onRedo()
+  {
+    m_redo_pub.publish(std_msgs::Empty());
+  }
+
+  void QRVizCloudAnnotation::onUndoRedoState(const rviz_cloud_annotation::UndoRedoState & msg)
+  {
+    m_undo_action->setEnabled(msg.undo_enabled);
+    SetUndoText(msg.undo_description);
+    m_redo_action->setEnabled(msg.redo_enabled);
+    SetRedoText(msg.redo_description);
+  }
+
+  void QRVizCloudAnnotation::SetUndoText(const std::string & text)
+  {
+    std::string t = "Undo";
+    if (!text.empty())
+      t += " (" + text + ")";
+    m_undo_action->setText(t.c_str());
+  }
+
+  void QRVizCloudAnnotation::SetRedoText(const std::string & text)
+  {
+    std::string t = "Redo";
+    if (!text.empty())
+      t += " (" + text + ")";
+    m_redo_action->setText(t.c_str());
   }
 
   void QRVizCloudAnnotation::onSetName(const std_msgs::String & name)

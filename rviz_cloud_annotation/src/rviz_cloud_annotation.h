@@ -90,6 +90,15 @@
 #define PARAM_NAME_VIEW_CLOUD_TOPIC           "rviz_cloud_annotation/view_cloud_topic"
 #define PARAM_DEFAULT_VIEW_CLOUD_TOPIC        "/rviz_cloud_annotation/view_cloud"
 
+#define PARAM_NAME_UNDO_TOPIC                 "rviz_cloud_annotation/undo_topic"
+#define PARAM_DEFAULT_UNDO_TOPIC              "/rviz_cloud_annotation/undo"
+
+#define PARAM_NAME_REDO_TOPIC                 "rviz_cloud_annotation/redo_topic"
+#define PARAM_DEFAULT_REDO_TOPIC              "/rviz_cloud_annotation/redo"
+
+#define PARAM_NAME_UNDO_REDO_STATE_TOPIC      "rviz_cloud_annotation/undo_redo_state_topic"
+#define PARAM_DEFAULT_UNDO_REDO_STATE_TOPIC   "/rviz_cloud_annotation/undo_redo_state"
+
 // parameters for smart labeling
   // neighborhood graph distance
 #define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance"

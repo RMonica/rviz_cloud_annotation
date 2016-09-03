@@ -8,6 +8,8 @@
 #include "rviz_cloud_annotation.h"
 #include "rviz_cloud_annotation_points.h"
 #include "point_neighborhood.h"
+#include "rviz_cloud_annotation_undo.h"
+#include <rviz_cloud_annotation/UndoRedoState.h>
 
 // STL
 #include <stdint.h>
@@ -22,6 +24,7 @@
 #include <std_msgs/String.h>
 #include <std_msgs/UInt64MultiArray.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/Empty.h>
 
 // PCL
 #include <pcl/point_cloud.h>
@@ -98,15 +101,17 @@ class RVizCloudAnnotation
 
     if (clear_label != 0)
     {
-      const Uint64Vector changed = m_annotation->ClearLabel(clear_label);
+      const Uint64Vector changed = m_undo_redo.ClearLabel(clear_label);
       SendControlPointsMarker(changed,true);
       SendPointCounts(changed);
+      SendUndoRedoState();
       return;
     }
 
-    const Uint64Vector changed = m_annotation->Clear();
+    const Uint64Vector changed = m_undo_redo.Clear();
     SendPointCounts(changed);
     SendControlPointsMarker(changed,true);
+    SendUndoRedoState();
   }
 
   void onClickOnCloud(const InteractiveMarkerFeedbackConstPtr & feedback_ptr);
@@ -121,6 +126,7 @@ class RVizCloudAnnotation
     m_current_label = label;
     ROS_INFO("rviz_cloud_annotation: label is now: %u",(unsigned int)(m_current_label));
     SendName();
+    SendUndoRedoState();
 
     std_msgs::UInt32 msg;
     msg.data = label;
@@ -165,10 +171,14 @@ class RVizCloudAnnotation
 
   void onSetName(const std_msgs::String & msg)
   {
-    m_annotation->SetNameForLabel(m_current_label,msg.data);
+    m_undo_redo.SetNameForLabel(m_current_label,msg.data);
     ROS_INFO("rviz_cloud_annotation: label %u is now named \"%s\".",uint(m_current_label),msg.data.c_str());
     SendName();
+    SendUndoRedoState();
   }
+
+  void onUndo(const std_msgs::Empty &);
+  void onRedo(const std_msgs::Empty &);
 
   void SendName()
   {
@@ -177,6 +187,8 @@ class RVizCloudAnnotation
     msg.data = name;
     m_set_name_pub.publish(msg);
   }
+
+  void SendUndoRedoState();
 
   void SendPointCounts(const Uint64Vector & labels)
   {
@@ -266,7 +278,8 @@ class RVizCloudAnnotation
   InteractiveMarkerServerPtr m_interactive_marker_server;
   PointXYZRGBNormalCloud::Ptr m_cloud;
 
-  RVizCloudAnnotationPoints::Ptr m_annotation;
+  RVizCloudAnnotationPoints::ConstPtr m_annotation;
+  RVizCloudAnnotationUndo m_undo_redo;
 
   KdTree::Ptr m_kdtree;
 
@@ -282,6 +295,10 @@ class RVizCloudAnnotation
   ros::Subscriber m_save_sub;
   ros::Subscriber m_restore_sub;
   ros::Subscriber m_clear_sub;
+
+  ros::Subscriber m_undo_sub;
+  ros::Subscriber m_redo_sub;
+  ros::Publisher m_undo_redo_state_pub;
 
   ros::Subscriber m_view_control_points_sub;
   ros::Subscriber m_view_cloud_sub;

@@ -10,9 +10,12 @@
 #include <std_msgs/UInt32.h>
 #include <std_msgs/String.h>
 #include <std_msgs/UInt64MultiArray.h>
+#include <std_msgs/Empty.h>
 
 #include <stdint.h>
 #include <vector>
+
+#include <rviz_cloud_annotation/UndoRedoState.h>
 
 class QLabel;
 class QPushButton;
@@ -50,6 +53,9 @@ namespace rviz_cloud_annotation
     void onClear();
     void onClearCurrent();
 
+    void onUndo();
+    void onRedo();
+
     void onSendName();
 
     void onViewCloudToggled(const bool checked);
@@ -67,6 +73,7 @@ namespace rviz_cloud_annotation
     void onSetCurrentLabel(const std_msgs::UInt32 & label);
     void onSetEditMode2(const std_msgs::UInt32 & mode);
     void onPointCountUpdate(const std_msgs::UInt64MultiArray & counters);
+    void onUndoRedoState(const rviz_cloud_annotation::UndoRedoState & msg);
 
     void onSetName(const std_msgs::String & name);
 
@@ -74,6 +81,9 @@ namespace rviz_cloud_annotation
     uint64 GetLabelFromPageAndId(const uint64 page,const int id) const;
     uint64 GetFirstLabelForPage(const uint64 page) const;
     uint64 GetLastLabelForPage(const uint64 page) const;
+
+    void SetUndoText(const std::string & text);
+    void SetRedoText(const std::string & text);
 
     uint64 m_current_edit_mode;
 
@@ -99,6 +109,10 @@ namespace rviz_cloud_annotation
     ros::Publisher m_view_labels_pub;
     ros::Publisher m_view_control_points_pub;
 
+    ros::Publisher m_redo_pub;
+    ros::Publisher m_undo_pub;
+    ros::Subscriber m_undo_redo_state_sub;
+
     QPushButton * m_edit_none_button;
     QPushButton * m_edit_control_point_button;
     QPushButton * m_edit_eraser_button;
@@ -109,6 +123,9 @@ namespace rviz_cloud_annotation
     QAction * m_next_page_action;
     QAction * m_next_label_action;
     QAction * m_prev_label_action;
+
+    QAction * m_undo_action;
+    QAction * m_redo_action;
 
     QLabel * m_current_page_label;
 

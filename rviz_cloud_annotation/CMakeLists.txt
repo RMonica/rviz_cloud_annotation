@@ -23,12 +23,10 @@ add_definitions(-DQT_NO_KEYWORDS)
 ## Declare ROS messages, services and actions ##
 ################################################
 
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  UndoRedoState.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -44,21 +42,10 @@ add_definitions(-DQT_NO_KEYWORDS)
 #   Action2.action
 # )
 
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   visualization_msgs
-# )
-
-################################################
-## Declare ROS dynamic reconfigure parameters ##
-################################################
-
-## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -82,20 +69,11 @@ include_directories(
   ${Eigen_INCLUDE_DIRS}
 )
 
-## Declare a C++ library
-# add_library(rviz_cloud_annotation
-#   src/${PROJECT_NAME}/rviz_cloud_annotation.cpp
-# )
-
-## Add cmake target dependencies of the library
-## as an example, code may need to be generated before libraries
-## either from message generation or dynamic reconfigure
-# add_dependencies(rviz_cloud_annotation ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
 add_executable(rviz_cloud_annotation_node
   src/rviz_cloud_annotation.cpp
   src/rviz_cloud_annotation_points.cpp
   src/rviz_cloud_annotation_class.cpp
+  src/rviz_cloud_annotation_undo.cpp
   src/point_neighborhood.cpp
   )
 

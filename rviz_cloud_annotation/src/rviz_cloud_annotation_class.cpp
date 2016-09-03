@@ -47,8 +47,11 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
     ROS_INFO("done.");
   }
 
-  m_annotation = RVizCloudAnnotationPoints::Ptr(new RVizCloudAnnotationPoints(
+  RVizCloudAnnotationPoints::Ptr default_annotation = RVizCloudAnnotationPoints::Ptr(new RVizCloudAnnotationPoints(
     m_cloud->size(),m_point_neighborhood));
+  m_annotation = default_annotation;
+  m_undo_redo.SetAnnotation(default_annotation);
+  SendUndoRedoState();
 
   m_nh.param<std::string>(PARAM_NAME_FRAME_ID,m_frame_id,PARAM_DEFAULT_FRAME_ID);
 
@@ -104,6 +107,15 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
 
   m_nh.param<std::string>(PARAM_NAME_VIEW_LABEL_TOPIC,param_string,PARAM_DEFAULT_VIEW_LABEL_TOPIC);
   m_view_labels_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onViewLabels,this);
+
+  m_nh.param<std::string>(PARAM_NAME_UNDO_REDO_STATE_TOPIC,param_string,PARAM_DEFAULT_UNDO_REDO_STATE_TOPIC);
+  m_undo_redo_state_pub = m_nh.advertise<rviz_cloud_annotation::UndoRedoState>(param_string,1);
+
+  m_nh.param<std::string>(PARAM_NAME_UNDO_TOPIC,param_string,PARAM_DEFAULT_UNDO_TOPIC);
+  m_undo_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onUndo,this);
+
+  m_nh.param<std::string>(PARAM_NAME_REDO_TOPIC,param_string,PARAM_DEFAULT_REDO_TOPIC);
+  m_redo_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onRedo,this);
 
   m_current_label = 1;
   m_edit_mode = EDIT_MODE_NONE;
@@ -304,9 +316,11 @@ void RVizCloudAnnotation::Restore(const std::string & filename)
 
   ClearControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),false);
   m_annotation = maybe_new_annotation;
+  m_undo_redo.SetAnnotation(maybe_new_annotation);
   SendControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),true);
   SendName();
   SendPointCounts(RangeUint64(1,m_annotation->GetNextLabel()));
+  SendUndoRedoState();
 
   ROS_INFO("rviz_cloud_annotation: file loaded.");
 }
@@ -522,6 +536,36 @@ RVizCloudAnnotation::uint64 RVizCloudAnnotation::GetClickedPointId(const Interac
   return 0;
 }
 
+void RVizCloudAnnotation::SendUndoRedoState()
+{
+  rviz_cloud_annotation::UndoRedoState msg;
+  msg.redo_enabled = m_undo_redo.IsRedoEnabled();
+  msg.undo_enabled = m_undo_redo.IsUndoEnabled();
+  msg.redo_description = m_undo_redo.GetRedoDescription();
+  msg.undo_description = m_undo_redo.GetUndoDescription();
+  m_undo_redo_state_pub.publish(msg);
+}
+
+void RVizCloudAnnotation::onUndo(const std_msgs::Empty &)
+{
+  if (!m_undo_redo.IsUndoEnabled())
+    return;
+  const Uint64Vector changed = m_undo_redo.Undo();
+  SendControlPointsMarker(changed,true);
+  SendPointCounts(changed);
+  SendUndoRedoState();
+}
+
+void RVizCloudAnnotation::onRedo(const std_msgs::Empty &)
+{
+  if (!m_undo_redo.IsRedoEnabled())
+    return;
+  const Uint64Vector changed = m_undo_redo.Redo();
+  SendControlPointsMarker(changed,true);
+  SendPointCounts(changed);
+  SendUndoRedoState();
+}
+
 void RVizCloudAnnotation::onClickOnCloud(const InteractiveMarkerFeedbackConstPtr & feedback_ptr)
 {
   if (m_edit_mode == EDIT_MODE_NONE)
@@ -550,16 +594,18 @@ void RVizCloudAnnotation::onClickOnCloud(const InteractiveMarkerFeedbackConstPtr
   if (m_edit_mode == EDIT_MODE_CONTROL_POINT)
   {
     ROS_INFO("rviz_cloud_annotation: setting label %u to point %u",(unsigned int)(m_current_label),(unsigned int)(idx));
-    const Uint64Vector changed_labels = m_annotation->SetControlPoint(idx,m_current_label);
+    const Uint64Vector changed_labels = m_undo_redo.SetControlPoint(idx,m_current_label);
     SendControlPointsMarker(changed_labels,true);
     SendPointCounts(changed_labels);
+    SendUndoRedoState();
   }
   else if (m_edit_mode == EDIT_MODE_ERASER)
   {
     ROS_INFO("rviz_cloud_annotation: eraser: erasing label from point %u",(unsigned int)(idx));
-    const Uint64Vector changed_labels = m_annotation->SetControlPoint(idx,0);
+    const Uint64Vector changed_labels = m_undo_redo.SetControlPoint(idx,0);
     SendControlPointsMarker(changed_labels,true);
     SendPointCounts(changed_labels);
+    SendUndoRedoState();
   }
   else if (m_edit_mode == EDIT_MODE_COLOR_PICKER)
   {

@@ -66,6 +66,7 @@ class RVizCloudAnnotationPoints
 
   // 0 if none
   uint64 GetLabelForPoint(const uint64 idx) const {return m_labels_assoc[idx]; }
+  uint64 GetControlPointForPoint(const uint64 idx) const {return m_control_points_assoc[idx]; }
 
   std::string GetNameForLabel(const uint64 label) const
   {
