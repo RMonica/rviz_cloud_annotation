@@ -407,6 +407,12 @@ namespace rviz_cloud_annotation
     for (uint64 i = 0; i < size; i++)
     {
       const pcl::RGB color = pcl::GlasbeyLUT::at((i + m_current_page * size) % 256);
+
+      const uint64 luminance = color.r / 3 + color.g / 2 + color.b / 6; // approximate
+      const char * text_color = "black";
+      if (luminance < 80)
+        text_color = "white";
+
       char color_hex[6];
       color_hex[0] = HEX[color.r / 16];
       color_hex[1] = HEX[color.r % 16];
@@ -414,7 +420,8 @@ namespace rviz_cloud_annotation
       color_hex[3] = HEX[color.g % 16];
       color_hex[4] = HEX[color.b / 16];
       color_hex[5] = HEX[color.b % 16];
-      const std::string stylesheet = std::string("background-color: #") + color_hex;
+      const std::string stylesheet = std::string("color: ") +
+        std::string(text_color) + std::string("; background-color: #") + color_hex;
       m_page_buttons[i]->setStyleSheet(stylesheet.c_str());
     }
 
