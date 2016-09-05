@@ -289,6 +289,7 @@ namespace rviz_cloud_annotation
       connect(set_name_button,&QPushButton::clicked,this,&QRVizCloudAnnotation::onSendName);
     }
 
+    m_current_edit_mode = 1;
     SetCurrentEditMode(EDIT_MODE_NONE);
 
     m_current_page = 1;

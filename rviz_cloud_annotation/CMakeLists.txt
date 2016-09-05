@@ -19,6 +19,9 @@ find_package(Qt5Widgets REQUIRED)
 set(CMAKE_AUTOMOC ON)
 add_definitions(-DQT_NO_KEYWORDS)
 
+add_definitions(${PCL_DEFINITIONS})
+link_directories(${PCL_LIBRARY_DIRS})
+
 ################################################
 ## Declare ROS messages, services and actions ##
 ################################################
