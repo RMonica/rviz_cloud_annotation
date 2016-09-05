@@ -91,30 +91,7 @@ class RVizCloudAnnotation
 
   void Restore(const std::string & filename);
 
-  void onClear(const std_msgs::UInt32 & label_msg)
-  {
-    const uint64 old_max_label = m_annotation->GetNextLabel();
-
-    const uint64 clear_label = label_msg.data;
-    if (clear_label >= old_max_label)
-      return;
-
-    if (clear_label != 0)
-    {
-      const Uint64Vector changed = m_undo_redo.ClearLabel(clear_label);
-      SendControlPointsMarker(changed,true);
-      SendPointCounts(changed);
-      SendName();
-      SendUndoRedoState();
-      return;
-    }
-
-    const Uint64Vector changed = m_undo_redo.Clear();
-    SendPointCounts(changed);
-    SendControlPointsMarker(changed,true);
-    SendName();
-    SendUndoRedoState();
-  }
+  void onClear(const std_msgs::UInt32 & label_msg);
 
   void onClickOnCloud(const InteractiveMarkerFeedbackConstPtr & feedback_ptr);
   std::string GetClickType(const std::string & marker_name,uint64 & label_out) const;
@@ -224,47 +201,9 @@ class RVizCloudAnnotation
       m_interactive_marker_server->applyChanges();
   }
 
-  void ClearControlPointsMarker(const Uint64Vector & indices,const bool apply)
-  {
-    const uint64 changed_size = indices.size();
-    for (uint64 i = 0; i < changed_size; i++)
-    {
-      const uint64 label = indices[i];
-      const Uint64Vector control_points_empty;
-      m_interactive_marker_server->insert(
-        ControlPointsToMarker(*m_cloud,control_points_empty,label,(m_edit_mode != EDIT_MODE_NONE)),
-        boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
-      m_interactive_marker_server->insert(
-        LabelsToMarker(*m_cloud,control_points_empty,label,(m_edit_mode != EDIT_MODE_NONE)),
-        boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
-    }
+  void ClearControlPointsMarker(const Uint64Vector & indices,const bool apply);
 
-    if (apply)
-      m_interactive_marker_server->applyChanges();
-  }
-
-  void SendControlPointsMarker(const Uint64Vector & changed_labels,const bool apply)
-  {
-    const uint64 changed_size = changed_labels.size();
-    for (uint64 i = 0; i < changed_size; i++)
-    {
-      const uint64 label = changed_labels[i];
-      const bool isabove = label >= m_annotation->GetNextLabel();
-
-      const Uint64Vector control_points = isabove ? Uint64Vector() : m_annotation->GetControlPointList(label);
-      m_interactive_marker_server->insert(
-        ControlPointsToMarker(*m_cloud,control_points,label,(m_edit_mode != EDIT_MODE_NONE)),
-        boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
-
-      const Uint64Vector label_points = isabove ? Uint64Vector() : m_annotation->GetLabelPointList(label);
-      m_interactive_marker_server->insert(
-        LabelsToMarker(*m_cloud,label_points,label,(m_edit_mode != EDIT_MODE_NONE)),
-        boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
-    }
-
-    if (apply)
-      m_interactive_marker_server->applyChanges();
-  }
+  void SendControlPointsMarker(const Uint64Vector & changed_labels,const bool apply);
 
   InteractiveMarker ControlPointsToMarker(const PointXYZRGBNormalCloud & cloud,
                                           const Uint64Vector & control_points,

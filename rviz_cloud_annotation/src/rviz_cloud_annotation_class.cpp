@@ -196,7 +196,11 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
   marker.pose.position.y = 0.0;
   marker.pose.position.z = 0.0;
 
-  const pcl::RGB color = pcl::GlasbeyLUT::at((label - 1) % 256);
+  pcl::RGB color;
+  if (label == 0)
+    color.r = color.g = color.b = 0;
+  else
+    color = pcl::GlasbeyLUT::at((label - 1) % 256);
 
   const float label_size = m_view_cloud ? m_label_size : m_point_size;
   const float normal_mult = m_view_cloud ? m_label_size / 2.0 : 0.0;
@@ -226,7 +230,7 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
   points_control.interaction_mode = interactive ?
     int32(visualization_msgs::InteractiveMarkerControl::BUTTON) :
     int32(visualization_msgs::InteractiveMarkerControl::NONE);
-  if (m_view_labels)
+  if (m_view_labels && (!m_view_cloud || label != 0))
     points_control.markers.push_back(cloud_marker);
   marker.controls.push_back(points_control);
 
@@ -566,6 +570,82 @@ void RVizCloudAnnotation::onRedo(const std_msgs::Empty &)
   SendPointCounts(changed);
   SendName();
   SendUndoRedoState();
+}
+
+void RVizCloudAnnotation::onClear(const std_msgs::UInt32 & label_msg)
+{
+  const uint64 old_max_label = m_annotation->GetNextLabel();
+
+  const uint64 clear_label = label_msg.data;
+  if (clear_label >= old_max_label)
+    return;
+
+  if (clear_label != 0)
+  {
+    const Uint64Vector changed = m_undo_redo.ClearLabel(clear_label);
+    SendControlPointsMarker(changed,true);
+    SendPointCounts(changed);
+    SendName();
+    SendUndoRedoState();
+    return;
+  }
+
+  const Uint64Vector changed = m_undo_redo.Clear();
+  SendPointCounts(changed);
+  SendControlPointsMarker(changed,true);
+  SendName();
+  SendUndoRedoState();
+}
+
+void RVizCloudAnnotation::ClearControlPointsMarker(const Uint64Vector & indices,const bool apply)
+{
+  const uint64 changed_size = indices.size();
+  const Uint64Vector control_points_empty;
+  for (uint64 i = 0; i < changed_size; i++)
+  {
+    const uint64 label = indices[i];
+    m_interactive_marker_server->insert(
+      ControlPointsToMarker(*m_cloud,control_points_empty,label,(m_edit_mode != EDIT_MODE_NONE)),
+      boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+    m_interactive_marker_server->insert(
+      LabelsToMarker(*m_cloud,control_points_empty,label,(m_edit_mode != EDIT_MODE_NONE)),
+      boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+  }
+
+  m_interactive_marker_server->insert(
+    LabelsToMarker(*m_cloud,control_points_empty,0,(m_edit_mode != EDIT_MODE_NONE)),
+    boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+
+  if (apply)
+    m_interactive_marker_server->applyChanges();
+}
+
+void RVizCloudAnnotation::SendControlPointsMarker(const Uint64Vector & changed_labels,const bool apply)
+{
+  const uint64 changed_size = changed_labels.size();
+  for (uint64 i = 0; i < changed_size; i++)
+  {
+    const uint64 label = changed_labels[i];
+    const bool isabove = label >= m_annotation->GetNextLabel();
+
+    const Uint64Vector control_points = isabove ? Uint64Vector() : m_annotation->GetControlPointList(label);
+    m_interactive_marker_server->insert(
+      ControlPointsToMarker(*m_cloud,control_points,label,(m_edit_mode != EDIT_MODE_NONE)),
+      boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+
+    const Uint64Vector label_points = isabove ? Uint64Vector() : m_annotation->GetLabelPointList(label);
+    m_interactive_marker_server->insert(
+      LabelsToMarker(*m_cloud,label_points,label,(m_edit_mode != EDIT_MODE_NONE)),
+      boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+  }
+
+  const Uint64Vector label_points = m_annotation->GetLabelPointList(0);
+  m_interactive_marker_server->insert(
+    LabelsToMarker(*m_cloud,label_points,0,(m_edit_mode != EDIT_MODE_NONE)),
+    boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+
+  if (apply)
+    m_interactive_marker_server->applyChanges();
 }
 
 void RVizCloudAnnotation::onClickOnCloud(const InteractiveMarkerFeedbackConstPtr & feedback_ptr)
