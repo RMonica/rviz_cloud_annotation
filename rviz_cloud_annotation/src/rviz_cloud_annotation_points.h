@@ -57,9 +57,12 @@ class RVizCloudAnnotationPoints
 
   // returns the list of affected labels
   Uint64Vector SetControlPoint(const uint64 point_id,const uint64 label);
+  Uint64Vector SetControlPointList(const Uint64Vector & point_ids,const uint64 label);
+  Uint64Vector SetControlPointList(const Uint64Vector & point_ids,const Uint64Vector & labels);
+
   Uint64Vector Clear();
   Uint64Vector ClearLabel(const uint64 label); // clear label, returns list of affected labels
-  void SetNameForLabel(const uint64 label,const std::string & name);
+  Uint64Vector SetNameForLabel(const uint64 label,const std::string & name);
 
   Uint64Vector GetControlPointList(const uint64 label) const;
   Uint64Vector GetLabelPointList(const uint64 label) const;

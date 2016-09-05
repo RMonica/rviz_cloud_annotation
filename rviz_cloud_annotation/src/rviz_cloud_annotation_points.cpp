@@ -76,6 +76,28 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPoi
   return UpdateLabels(point_ids,prev_label,label);
 }
 
+RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPointList(
+  const Uint64Vector & point_ids,const uint64 label)
+{
+  const Uint64Vector all_labels(point_ids.size(),label);
+  return SetControlPointList(point_ids,all_labels);
+}
+
+RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPointList(
+  const Uint64Vector & point_ids,const Uint64Vector & labels)
+{
+  Uint64Set touched;
+
+  const uint64 size = point_ids.size();
+  for (uint64 i = 0; i < size; i++)
+  {
+    const Uint64Vector local_touched = SetControlPoint(point_ids[i],labels[i]);
+    touched.insert(local_touched.begin(),local_touched.end());
+  }
+
+  return Uint64Vector(touched.begin(),touched.end());
+}
+
 RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::UpdateLabels(
   const Uint64Vector & point_ids,const uint64 prev_label,const uint64 next_label)
 {
@@ -357,10 +379,11 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::ClearLabel(co
   return UpdateLabels(control_points,label,0);
 }
 
-void RVizCloudAnnotationPoints::SetNameForLabel(const uint64 label,const std::string & name)
+RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetNameForLabel(const uint64 label,const std::string & name)
 {
   ExpandControlPointsUntil(label);
   m_control_point_names[label - 1] = name;
+  return Uint64Vector(1,label);
 }
 
 void RVizCloudAnnotationPoints::ExpandControlPointsUntil(const uint64 label)

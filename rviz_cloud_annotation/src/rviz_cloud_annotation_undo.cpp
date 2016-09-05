@@ -9,6 +9,10 @@
 typedef RVizCloudAnnotationUndo::SetControlPointAction SetControlPointAction;
 typedef RVizCloudAnnotationUndo::Action Action;
 typedef RVizCloudAnnotationUndo::SetNameForLabelAction SetNameForLabelAction;
+typedef RVizCloudAnnotationUndo::ClearLabelAction ClearLabelAction;
+typedef RVizCloudAnnotationUndo::RestoreLabelAction RestoreLabelAction;
+typedef RVizCloudAnnotationUndo::ClearAction ClearAction;
+typedef RVizCloudAnnotationUndo::RestoreAction RestoreAction;
 
 #define QUEUE_SIZE_SANITY (10000)
 
@@ -99,11 +103,36 @@ std::string RVizCloudAnnotationUndo::GetRedoDescription() const
 
 RVizCloudAnnotationUndo::Uint64Vector RVizCloudAnnotationUndo::Clear()
 {
+  Uint64Vector prev_control_points;
+  Uint64Vector prev_labels;
+  StringVector names;
+  const uint64 max_label = m_annotation->GetMaxLabel();
+  names.resize(max_label);
+  for (uint64 i = 0; i < max_label; i++)
+  {
+    names[i] = m_annotation->GetNameForLabel(i + 1);
+
+    const Uint64Vector cp = m_annotation->GetControlPointList(i + 1);
+    if (!cp.empty())
+    {
+      const Uint64Vector lb(cp.size(),i + 1);
+      prev_control_points.insert(prev_control_points.end(),cp.begin(),cp.end());
+      prev_labels.insert(prev_labels.end(),lb.begin(),lb.end());
+    }
+  }
+
+  const Action::Ptr action(new ClearAction(prev_labels,prev_control_points,names));
+  PushAction(action);
   return m_annotation->Clear();
 }
 
 RVizCloudAnnotationUndo::Uint64Vector RVizCloudAnnotationUndo::ClearLabel(const uint32 label)
 {
+  const Uint64Vector prev_control_points = m_annotation->GetControlPointList(label);
+  if (prev_control_points.empty())
+    return Uint64Vector();
+  const Action::Ptr action(new ClearLabelAction(label,prev_control_points));
+  PushAction(action);
   return m_annotation->ClearLabel(label);
 }
 
@@ -176,4 +205,108 @@ std::string SetNameForLabelAction::GetDescription() const
   std::ostringstream oss;
   oss << "Name " << m_label;
   return oss.str();
+}
+
+// -----
+
+RVizCloudAnnotationUndo::Uint64Vector ClearLabelAction::Execute(RVizCloudAnnotationPoints & annotation) const
+{
+  return annotation.ClearLabel(m_label);
+}
+
+Action::Ptr ClearLabelAction::Inverse() const
+{
+  return Action::Ptr(new RestoreLabelAction(m_label,m_prev_control_points));
+}
+
+std::string ClearLabelAction::GetDescription() const
+{
+  std::ostringstream oss;
+  oss << "Clear " << m_label;
+  return oss.str();
+}
+
+ClearLabelAction::ClearLabelAction(const uint32 label,const Uint64Vector & prev_control_points)
+{
+  m_label = label;
+  m_prev_control_points = prev_control_points;
+}
+
+RVizCloudAnnotationUndo::Uint64Vector RestoreLabelAction::Execute(RVizCloudAnnotationPoints & annotation) const
+{
+  return annotation.SetControlPointList(m_control_points,m_label);
+}
+
+Action::Ptr RestoreLabelAction::Inverse() const
+{
+  return Action::Ptr(new ClearLabelAction(m_label,m_control_points));
+}
+
+std::string RestoreLabelAction::GetDescription() const
+{
+  std::ostringstream oss;
+  oss << "Restore " << m_label;
+  return oss.str();
+}
+
+RestoreLabelAction::RestoreLabelAction(const uint32 label,const Uint64Vector & control_points)
+{
+  m_label = label;
+  m_control_points = control_points;
+}
+
+// -----
+
+RVizCloudAnnotationUndo::Uint64Vector ClearAction::Execute(RVizCloudAnnotationPoints & annotation) const
+{
+  return annotation.Clear();
+}
+
+Action::Ptr ClearAction::Inverse() const
+{
+  return Action::Ptr(new RestoreAction(m_labels,m_prev_control_points,m_names));
+}
+
+std::string ClearAction::GetDescription() const
+{
+  return "Clear all";
+}
+
+ClearAction::ClearAction(const Uint64Vector & labels,const Uint64Vector & control_points,const StringVector & names)
+{
+  m_labels = labels;
+  m_prev_control_points = control_points;
+  m_names = names;
+}
+
+RVizCloudAnnotationUndo::Uint64Vector RestoreAction::Execute(RVizCloudAnnotationPoints & annotation) const
+{
+  const uint64 size = m_names.size();
+  Uint64Vector all(size);
+  for (uint64 i = 0; i < m_names.size(); i++)
+  {
+    annotation.SetNameForLabel(i + 1,m_names[i]);
+    all[i] = i + 1;
+  }
+
+  annotation.SetControlPointList(m_control_points,m_labels);
+
+  return all;
+}
+
+Action::Ptr RestoreAction::Inverse() const
+{
+  return Action::Ptr(new ClearAction(m_labels,m_control_points,m_names));
+}
+
+std::string RestoreAction::GetDescription() const
+{
+  return "Restore all";
+}
+
+RestoreAction::RestoreAction(const Uint64Vector & labels,const Uint64Vector & control_points,const StringVector & names)
+{
+  m_labels = labels;
+  m_control_points = control_points;
+  m_names = names;
 }

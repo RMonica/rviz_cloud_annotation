@@ -23,6 +23,8 @@ class RVizCloudAnnotationUndo
   typedef uint64_t uint64;
   typedef uint32_t uint32;
   typedef std::vector<uint64> Uint64Vector;
+  typedef std::vector<uint32> Uint32Vector;
+  typedef std::vector<std::string> StringVector;
 
   RVizCloudAnnotationUndo();
 
@@ -71,6 +73,64 @@ class RVizCloudAnnotationUndo
     std::string m_new_name;
     std::string m_prev_name;
     uint32 m_label;
+  };
+
+  class ClearLabelAction: public Action
+  {
+    public:
+    Uint64Vector Execute(RVizCloudAnnotationPoints & annotation) const;
+    Action::Ptr Inverse() const;
+    std::string GetDescription() const;
+
+    ClearLabelAction(const uint32 label,const Uint64Vector & prev_control_points);
+
+    private:
+    Uint64Vector m_prev_control_points;
+    uint32 m_label;
+  };
+
+  class RestoreLabelAction: public Action
+  {
+    public:
+    Uint64Vector Execute(RVizCloudAnnotationPoints & annotation) const;
+    Action::Ptr Inverse() const;
+    std::string GetDescription() const;
+
+    RestoreLabelAction(const uint32 label,const Uint64Vector & control_points);
+
+    private:
+    Uint64Vector m_control_points;
+    uint32 m_label;
+  };
+
+  class ClearAction: public Action
+  {
+    public:
+    Uint64Vector Execute(RVizCloudAnnotationPoints & annotation) const;
+    Action::Ptr Inverse() const;
+    std::string GetDescription() const;
+
+    ClearAction(const Uint64Vector & labels,const Uint64Vector & control_points,const StringVector & names);
+
+    private:
+    Uint64Vector m_prev_control_points;
+    Uint64Vector m_labels;
+    StringVector m_names;
+  };
+
+  class RestoreAction: public Action
+  {
+    public:
+    Uint64Vector Execute(RVizCloudAnnotationPoints & annotation) const;
+    Action::Ptr Inverse() const;
+    std::string GetDescription() const;
+
+    RestoreAction(const Uint64Vector & labels,const Uint64Vector & control_points,const StringVector & names);
+
+    private:
+    Uint64Vector m_control_points;
+    Uint64Vector m_labels;
+    StringVector m_names;
   };
 
   Uint64Vector SetControlPoint(const uint64 idx,const uint32 next_label);

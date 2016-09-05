@@ -104,6 +104,7 @@ class RVizCloudAnnotation
       const Uint64Vector changed = m_undo_redo.ClearLabel(clear_label);
       SendControlPointsMarker(changed,true);
       SendPointCounts(changed);
+      SendName();
       SendUndoRedoState();
       return;
     }
@@ -111,6 +112,7 @@ class RVizCloudAnnotation
     const Uint64Vector changed = m_undo_redo.Clear();
     SendPointCounts(changed);
     SendControlPointsMarker(changed,true);
+    SendName();
     SendUndoRedoState();
   }
 
