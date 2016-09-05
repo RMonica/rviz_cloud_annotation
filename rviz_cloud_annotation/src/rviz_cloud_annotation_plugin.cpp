@@ -338,7 +338,7 @@ namespace rviz_cloud_annotation
   void QRVizCloudAnnotation::onSetName(const std_msgs::String & name)
   {
     const std::string n = name.data;
-    m_set_name_edit->setText(n.c_str());
+    m_set_name_edit->setText(QString::fromUtf8(n.c_str()));
   }
 
   void QRVizCloudAnnotation::onSendName()
