@@ -51,7 +51,6 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
     m_cloud->size(),m_point_neighborhood));
   m_annotation = default_annotation;
   m_undo_redo.SetAnnotation(default_annotation);
-  SendUndoRedoState();
 
   m_nh.param<std::string>(PARAM_NAME_FRAME_ID,m_frame_id,PARAM_DEFAULT_FRAME_ID);
 
@@ -109,7 +108,7 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_view_labels_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onViewLabels,this);
 
   m_nh.param<std::string>(PARAM_NAME_UNDO_REDO_STATE_TOPIC,param_string,PARAM_DEFAULT_UNDO_REDO_STATE_TOPIC);
-  m_undo_redo_state_pub = m_nh.advertise<rviz_cloud_annotation::UndoRedoState>(param_string,1);
+  m_undo_redo_state_pub = m_nh.advertise<rviz_cloud_annotation::UndoRedoState>(param_string,1,true);
 
   m_nh.param<std::string>(PARAM_NAME_UNDO_TOPIC,param_string,PARAM_DEFAULT_UNDO_TOPIC);
   m_undo_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onUndo,this);
