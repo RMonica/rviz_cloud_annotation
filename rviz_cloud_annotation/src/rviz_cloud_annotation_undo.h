@@ -58,11 +58,25 @@ class RVizCloudAnnotationUndo
     uint32 m_next_label;
   };
 
+  class SetNameForLabelAction: public Action
+  {
+    public:
+    Uint64Vector Execute(RVizCloudAnnotationPoints & annotation) const;
+    Action::Ptr Inverse() const;
+    std::string GetDescription() const;
+
+    SetNameForLabelAction(const uint32 label,const std::string & prev_name,const std::string & new_name);
+
+    private:
+    std::string m_new_name;
+    std::string m_prev_name;
+    uint32 m_label;
+  };
+
   Uint64Vector SetControlPoint(const uint64 idx,const uint32 next_label);
-  Uint64Vector Clear() {return m_annotation->Clear(); }
-  Uint64Vector ClearLabel(const uint32 label) {return m_annotation->ClearLabel(label); }
-  Uint64Vector SetNameForLabel(const uint32 label,const std::string & name)
-    {m_annotation->SetNameForLabel(label,name); return Uint64Vector(); }
+  Uint64Vector Clear();
+  Uint64Vector ClearLabel(const uint32 label);
+  Uint64Vector SetNameForLabel(const uint32 label,const std::string & name);
 
   Uint64Vector Undo();
   Uint64Vector Redo();

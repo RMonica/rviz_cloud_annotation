@@ -553,6 +553,7 @@ void RVizCloudAnnotation::onUndo(const std_msgs::Empty &)
   const Uint64Vector changed = m_undo_redo.Undo();
   SendControlPointsMarker(changed,true);
   SendPointCounts(changed);
+  SendName();
   SendUndoRedoState();
 }
 
@@ -563,6 +564,7 @@ void RVizCloudAnnotation::onRedo(const std_msgs::Empty &)
   const Uint64Vector changed = m_undo_redo.Redo();
   SendControlPointsMarker(changed,true);
   SendPointCounts(changed);
+  SendName();
   SendUndoRedoState();
 }
 

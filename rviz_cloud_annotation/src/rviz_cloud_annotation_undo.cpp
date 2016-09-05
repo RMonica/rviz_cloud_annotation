@@ -8,6 +8,7 @@
 
 typedef RVizCloudAnnotationUndo::SetControlPointAction SetControlPointAction;
 typedef RVizCloudAnnotationUndo::Action Action;
+typedef RVizCloudAnnotationUndo::SetNameForLabelAction SetNameForLabelAction;
 
 #define QUEUE_SIZE_SANITY (10000)
 
@@ -96,6 +97,27 @@ std::string RVizCloudAnnotationUndo::GetRedoDescription() const
   return m_actions[m_undone_count - 1]->GetDescription();
 }
 
+RVizCloudAnnotationUndo::Uint64Vector RVizCloudAnnotationUndo::Clear()
+{
+  return m_annotation->Clear();
+}
+
+RVizCloudAnnotationUndo::Uint64Vector RVizCloudAnnotationUndo::ClearLabel(const uint32 label)
+{
+  return m_annotation->ClearLabel(label);
+}
+
+RVizCloudAnnotationUndo::Uint64Vector RVizCloudAnnotationUndo::SetNameForLabel(const uint32 label,const std::string & new_name)
+{
+  const std::string prev_name = m_annotation->GetNameForLabel(label);
+  if (prev_name == new_name)
+    return Uint64Vector(); // nothing to do
+
+  const Action::Ptr action(new SetNameForLabelAction(label,prev_name,new_name));
+  PushAction(action);
+  return action->Execute(*m_annotation);
+}
+
 // -----
 
 RVizCloudAnnotationUndo::Uint64Vector SetControlPointAction::Execute(RVizCloudAnnotationPoints & annotation) const
@@ -111,10 +133,12 @@ Action::Ptr SetControlPointAction::Inverse() const
 std::string SetControlPointAction::GetDescription() const
 {
   std::ostringstream oss;
-  if (m_next_label)
-    oss << "Set label " << m_next_label;
+  if (m_next_label && !m_prev_label)
+    oss << "Set " << m_next_label;
+  else if (m_prev_label && !m_next_label)
+    oss << "Del " << m_prev_label;
   else
-    oss << "Del label " << m_prev_label;
+    oss << "Set " << m_prev_label << " -> " << m_next_label;
   return oss.str();
 }
 
@@ -123,4 +147,33 @@ SetControlPointAction::SetControlPointAction(const uint64 idx,const uint32 prev_
   m_idx = idx;
   m_prev_label = prev_label;
   m_next_label = next_label;
+}
+
+// -----
+
+SetNameForLabelAction::SetNameForLabelAction(const uint32 label,const std::string & prev_name,const std::string & new_name)
+{
+  m_label = label;
+  m_prev_name = prev_name;
+  m_new_name = new_name;
+}
+
+RVizCloudAnnotationUndo::Uint64Vector SetNameForLabelAction::Execute(RVizCloudAnnotationPoints & annotation) const
+{
+  annotation.SetNameForLabel(m_label,m_new_name);
+  Uint64Vector result;
+  result.push_back(m_label);
+  return result;
+}
+
+Action::Ptr SetNameForLabelAction::Inverse() const
+{
+  return Action::Ptr(new SetNameForLabelAction(m_label,m_new_name,m_prev_name));
+}
+
+std::string SetNameForLabelAction::GetDescription() const
+{
+  std::ostringstream oss;
+  oss << "Name " << m_label;
+  return oss.str();
 }

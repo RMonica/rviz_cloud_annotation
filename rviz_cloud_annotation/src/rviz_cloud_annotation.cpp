@@ -12,5 +12,7 @@ int main(int argc, char** argv)
   RVizCloudAnnotation rvca(nh);
 
   ros::spin();
+
+  return 0;
 }
 
