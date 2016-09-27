@@ -413,13 +413,14 @@ namespace rviz_cloud_annotation
       if (luminance < 80)
         text_color = "white";
 
-      char color_hex[6];
+      char color_hex[7];
       color_hex[0] = HEX[color.r / 16];
       color_hex[1] = HEX[color.r % 16];
       color_hex[2] = HEX[color.g / 16];
       color_hex[3] = HEX[color.g % 16];
       color_hex[4] = HEX[color.b / 16];
       color_hex[5] = HEX[color.b % 16];
+      color_hex[6] = 0;
       const std::string stylesheet = std::string("color: ") +
         std::string(text_color) + std::string("; background-color: #") + color_hex;
       m_page_buttons[i]->setStyleSheet(stylesheet.c_str());
