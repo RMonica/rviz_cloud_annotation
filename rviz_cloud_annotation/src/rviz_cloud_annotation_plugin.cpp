@@ -20,6 +20,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QToolButton>
+#include <QStyle>
 
 // STL
 #include <iostream>
@@ -256,6 +257,9 @@ namespace rviz_cloud_annotation
       QGridLayout * page_layout = new QGridLayout();
       main_layout->addLayout(page_layout);
 
+      page_layout->setVerticalSpacing(1);
+      page_layout->setHorizontalSpacing(1);
+
       m_page_button_group = new QButtonGroup(this);
 
       m_page_buttons.resize(m_color_cols_per_page * m_color_rows_per_page);
@@ -295,6 +299,8 @@ namespace rviz_cloud_annotation
     m_current_page = 1;
     m_current_label = 0;
     SetCurrentLabel(1,0);
+
+    FillColorPageButtonStylesheet();
   }
 
   QRVizCloudAnnotation::~QRVizCloudAnnotation()
@@ -386,6 +392,53 @@ namespace rviz_cloud_annotation
     FillPointCounts();
   }
 
+  void QRVizCloudAnnotation::ColorToHex(const pcl::RGB & color,char color_hex[7])
+  {
+    static const char HEX[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+    color_hex[0] = HEX[color.r / 16];
+    color_hex[1] = HEX[color.r % 16];
+    color_hex[2] = HEX[color.g / 16];
+    color_hex[3] = HEX[color.g % 16];
+    color_hex[4] = HEX[color.b / 16];
+    color_hex[5] = HEX[color.b % 16];
+    color_hex[6] = 0;
+  }
+
+  void QRVizCloudAnnotation::FillColorPageButtonStylesheet()
+  {
+    std::ostringstream stylesheet;
+    stylesheet << "QPushButton[ColorPageButton=\"true\"] {\n";
+    stylesheet << "  min-width: 1em;\n";
+    stylesheet << "  padding: 2px;\n";
+    stylesheet << "  margin: 1px;\n";
+    stylesheet << "}\n\n";
+
+    for (uint64 i = 0; i < 256; i++)
+    {
+      stylesheet << "QPushButton[ColorPageButtonColorId=\"" << i << "\"] {\n";
+
+      const pcl::RGB color = pcl::GlasbeyLUT::at(i);
+
+      const uint64 luminance = color.r / 3 + color.g / 2 + color.b / 6; // approximate
+      const char * text_color = "black";
+      if (luminance < 80)
+        text_color = "white";
+
+      char color_hex[7];
+      ColorToHex(color,color_hex);
+      stylesheet << "  color: " << text_color << ";\n";
+      stylesheet << "  background-color: #" << color_hex << ";\n";
+      stylesheet << "}\n\n";
+
+      stylesheet << "QPushButton[ColorPageButton=\"true\"][ColorPageButtonColorId=\"" << i << "\"]:checked {\n";
+      stylesheet << "  color: black;\n";
+      stylesheet << "}\n\n";
+    }
+
+    const std::string str = stylesheet.str();
+    setStyleSheet(str.c_str());
+  }
+
   void QRVizCloudAnnotation::FillPointCounts()
   {
     const uint64 page_size = m_color_cols_per_page * m_color_rows_per_page;
@@ -401,29 +454,15 @@ namespace rviz_cloud_annotation
 
   void QRVizCloudAnnotation::FillColorPageButtons()
   {
-    static const char HEX[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
     const uint64 size = m_page_buttons.size();
 
     for (uint64 i = 0; i < size; i++)
     {
-      const pcl::RGB color = pcl::GlasbeyLUT::at((i + m_current_page * size) % 256);
-
-      const uint64 luminance = color.r / 3 + color.g / 2 + color.b / 6; // approximate
-      const char * text_color = "black";
-      if (luminance < 80)
-        text_color = "white";
-
-      char color_hex[7];
-      color_hex[0] = HEX[color.r / 16];
-      color_hex[1] = HEX[color.r % 16];
-      color_hex[2] = HEX[color.g / 16];
-      color_hex[3] = HEX[color.g % 16];
-      color_hex[4] = HEX[color.b / 16];
-      color_hex[5] = HEX[color.b % 16];
-      color_hex[6] = 0;
-      const std::string stylesheet = std::string("color: ") +
-        std::string(text_color) + std::string("; background-color: #") + color_hex;
-      m_page_buttons[i]->setStyleSheet(stylesheet.c_str());
+      m_page_buttons[i]->setProperty("ColorPageButton",true);
+      m_page_buttons[i]->setProperty("ColorPageButtonColorId",int((i + m_current_page * size) % 256));
+      style()->unpolish(m_page_buttons[i]);
+      style()->polish(m_page_buttons[i]);
+      update();
     }
 
   }

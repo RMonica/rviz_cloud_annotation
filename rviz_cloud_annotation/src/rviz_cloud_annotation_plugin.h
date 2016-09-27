@@ -24,6 +24,8 @@ class QLineEdit;
 class QAction;
 class QToolButton;
 
+namespace pcl { class RGB; }
+
 namespace rviz_cloud_annotation
 {
 
@@ -32,6 +34,7 @@ namespace rviz_cloud_annotation
     Q_OBJECT;
 
     typedef uint64_t uint64;
+    typedef int64_t int64;
     typedef std::vector<uint64> Uint64Vector;
     typedef std::vector<QPushButton *> PQPushButtonVector;
 
@@ -67,6 +70,7 @@ namespace rviz_cloud_annotation
 
     void FillColorPageButtons();
     void FillPointCounts();
+    void FillColorPageButtonStylesheet();
 
     void SetCurrentLabel(const uint64 label,const uint64 page);
 
@@ -84,6 +88,8 @@ namespace rviz_cloud_annotation
 
     void SetUndoText(const std::string & text);
     void SetRedoText(const std::string & text);
+
+    static void ColorToHex(const pcl::RGB & color,char hex[7]);
 
     uint64 m_current_edit_mode;
 
