@@ -13,7 +13,15 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(Boost REQUIRED)
-find_package(PCL REQUIRED)
+find_package(PCL 1.8)
+
+set(MAYBE_PCL_COMMON_COLORS "")
+if (NOT ${PCL_FOUND})
+  message(WARNING "PCL 1.8 not found, attempting 1.7...")
+  find_package(PCL 1.7 REQUIRED)
+  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pcl_include)
+  set(MAYBE_PCL_COMMON_COLORS "${CMAKE_CURRENT_SOURCE_DIR}/pcl_include/colors.cpp")
+endif()
 
 find_package(Qt5Widgets REQUIRED)
 set(CMAKE_AUTOMOC ON)
@@ -78,6 +86,8 @@ add_executable(rviz_cloud_annotation_node
   src/rviz_cloud_annotation_class.cpp
   src/rviz_cloud_annotation_undo.cpp
   src/point_neighborhood.cpp
+
+  ${MAYBE_PCL_COMMON_COLORS}
   )
 
 add_dependencies(rviz_cloud_annotation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -93,6 +103,8 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 add_library(rviz_cloud_annotation_plugin
   src/rviz_cloud_annotation_plugin.cpp
+
+  ${MAYBE_PCL_COMMON_COLORS}
 )
 
 add_dependencies(rviz_cloud_annotation_plugin ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
