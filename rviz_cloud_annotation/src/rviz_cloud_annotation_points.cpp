@@ -397,7 +397,7 @@ void RVizCloudAnnotationPoints::ExpandControlPointsUntil(const uint64 label)
 
 #define MAGIC_STRING "ANNOTATION"
 #define MAGIC_MIN_VERSION (1)
-#define MAGIC_MAX_VERSION (2)
+#define MAGIC_MAX_VERSION (3)
 
 RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istream & ifile,
                                                                       PointNeighborhood::ConstPtr neighborhood)
@@ -435,8 +435,26 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
     ifile.read((char *)&normal_importance,sizeof(normal_importance));
     float max_distance;
     ifile.read((char *)&max_distance,sizeof(max_distance));
-    float search_distance;
-    ifile.read((char *)&search_distance,sizeof(search_distance));
+
+    PointNeighborhoodSearch::Searcher::ConstPtr searcher;
+    if (version <= 2)
+    {
+      float search_distance;
+      ifile.read((char *)&search_distance,sizeof(search_distance));
+      searcher = PointNeighborhoodSearch::CreateFromString(0,boost::lexical_cast<std::string>(search_distance));
+    }
+    else
+    {
+      try
+      {
+        searcher = PointNeighborhoodSearch::CreateFromIstream(ifile);
+      }
+      catch (const PointNeighborhoodSearch::ParserException & ex)
+      {
+        throw IOE(std::string("Invalid neighborhood configuration parameters: ") + ex.message);
+      }
+    }
+
     if (!ifile)
       throw IOE("Unexpected EOF while reading neighborhood configuration parameters.");
 
@@ -444,12 +462,12 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
       color_importance != conf.color_importance ||
       normal_importance != conf.normal_importance ||
       max_distance != conf.max_distance ||
-      search_distance != conf.search_distance)
+      !searcher->ApproxEquals(*conf.searcher))
     {
       const uint64 w = 30;
       std::ostringstream msg;
       msg << "Loaded neighborhood configuration parameters do not match: \n"
-          << std::setw(w) << "Name" << std::setw(w) << "ROS param" << std::setw(w) << "File\n"
+          << std::setw(w) << "Name" << std::setw(w) << "ROS param" << std::setw(w) << "File" << "\n"
           << std::setw(w) << PARAM_NAME_POSITION_IMPORTANCE
             << std::setw(w) << conf.position_importance << std::setw(w) << position_importance << "\n"
           << std::setw(w) << PARAM_NAME_COLOR_IMPORTANCE
@@ -458,8 +476,10 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
             << std::setw(w) << conf.normal_importance << std::setw(w) << normal_importance << "\n"
           << std::setw(w) << PARAM_NAME_MAX_DISTANCE
             << std::setw(w) << conf.max_distance << std::setw(w) << max_distance << "\n"
-          << std::setw(w) << PARAM_NAME_NEIGH_SEARCH_DISTANCE
-            << std::setw(w) << conf.search_distance << std::setw(w) << search_distance << "\n"
+          << std::setw(w) << PARAM_NAME_NEIGH_SEARCH_TYPE
+            << std::setw(w) << conf.searcher->GetId() << std::setw(w) << searcher->GetId() << "\n"
+          << std::setw(w) << PARAM_NAME_NEIGH_SEARCH_PARAMS
+            << std::setw(w) << conf.searcher->ToString() << std::setw(w) << searcher->ToString() << "\n"
           ;
       throw IOE(msg.str());
     }
@@ -540,8 +560,7 @@ void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile) const
     ofile.write((char *)&normal_importance,sizeof(normal_importance));
     const float max_distance = conf.max_distance;
     ofile.write((char *)&max_distance,sizeof(max_distance));
-    const float search_distance = conf.search_distance;
-    ofile.write((char *)&search_distance,sizeof(search_distance));
+    conf.searcher->Serialize(ofile);
   }
 
   const uint64 control_points_size = m_control_points.size();

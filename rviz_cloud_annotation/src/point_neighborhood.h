@@ -14,6 +14,8 @@
 #include <pcl/point_types.h>
 #include <pcl/kdtree/kdtree_flann.h>
 
+#include "point_neighborhood_search.h"
+
 class PointNeighborhood
 {
   public:
@@ -36,7 +38,7 @@ class PointNeighborhood
 
     float max_distance;
 
-    float search_distance;
+    PointNeighborhoodSearch::Searcher::ConstPtr searcher;
   };
 
   struct Neighs

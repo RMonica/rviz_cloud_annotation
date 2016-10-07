@@ -3,6 +3,7 @@
  */
 
 #include "rviz_cloud_annotation_class.h"
+#include "point_neighborhood_search.h"
 
 #include <cstring>
 
@@ -14,6 +15,7 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
 {
   std::string param_string;
   double param_double;
+  int param_int;
 
   m_nh.param<std::string>(PARAM_NAME_UPDATE_TOPIC,param_string,PARAM_DEFAULT_UPDATE_TOPIC);
   m_interactive_marker_server = InteractiveMarkerServerPtr(new InteractiveMarkerServer(param_string));
@@ -27,8 +29,26 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   {
     PointNeighborhood::Conf conf;
 
-    m_nh.param<double>(PARAM_NAME_NEIGH_SEARCH_DISTANCE,param_double,PARAM_DEFAULT_NEIGH_SEARCH_DISTANCE);
-    conf.search_distance = param_double;
+    m_nh.param<int>(PARAM_NAME_NEIGH_SEARCH_TYPE,param_int,PARAM_DEFAULT_NEIGH_SEARCH_TYPE);
+    m_nh.param<std::string>(PARAM_NAME_NEIGH_SEARCH_PARAMS,param_string,PARAM_DEFAULT_NEIGH_SEARCH_PARAMS);
+    if (param_int == PARAM_DEFAULT_NEIGH_SEARCH_TYPE && param_string == PARAM_DEFAULT_NEIGH_SEARCH_PARAMS)
+    {
+      ROS_INFO("rviz_cloud_annotation: parameter %s is at default value, using %s instead.",
+               PARAM_NAME_NEIGH_SEARCH_PARAMS,PARAM_NAME_NEIGH_SEARCH_DISTANCE);
+      m_nh.param<double>(PARAM_NAME_NEIGH_SEARCH_DISTANCE,param_double,PARAM_DEFAULT_NEIGH_SEARCH_DISTANCE);
+      param_string = boost::lexical_cast<std::string>(param_double);
+    }
+
+    try
+    {
+      conf.searcher = PointNeighborhoodSearch::CreateFromString(param_int,param_string);
+    }
+    catch (const PointNeighborhoodSearch::ParserException & ex)
+    {
+      ROS_ERROR("rviz_cloud_annotation: could not configure point neighborhood search from ROS param: %s",ex.message.c_str());
+      conf.searcher = PointNeighborhoodSearch::CreateFromString(PARAM_DEFAULT_NEIGH_SEARCH_TYPE,
+        boost::lexical_cast<std::string>(PARAM_DEFAULT_NEIGH_SEARCH_DISTANCE));
+    }
 
     m_nh.param<double>(PARAM_NAME_COLOR_IMPORTANCE,param_double,PARAM_DEFAULT_COLOR_IMPORTANCE);
     conf.color_importance = param_double;
@@ -42,9 +62,9 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
     m_nh.param<double>(PARAM_NAME_MAX_DISTANCE,param_double,PARAM_DEFAULT_MAX_DISTANCE);
     conf.max_distance = param_double;
 
-    ROS_INFO("Preparing point neighborhood...");
+    ROS_INFO("rviz_cloud_annotation: building point neighborhood...");
     m_point_neighborhood = PointNeighborhood::ConstPtr(new PointNeighborhood(m_cloud,conf));
-    ROS_INFO("done.");
+    ROS_INFO("rviz_cloud_annotation: done.");
   }
 
   RVizCloudAnnotationPoints::Ptr default_annotation = RVizCloudAnnotationPoints::Ptr(new RVizCloudAnnotationPoints(

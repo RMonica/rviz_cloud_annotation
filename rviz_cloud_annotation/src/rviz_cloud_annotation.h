@@ -104,6 +104,14 @@
 #define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance"
 #define PARAM_DEFAULT_NEIGH_SEARCH_DISTANCE   (0.02)
 
+#define PARAM_NAME_NEIGH_SEARCH_TYPE          "neigh_search_type"
+#define PARAM_DEFAULT_NEIGH_SEARCH_TYPE       (0)
+#define PARAM_VALUE_NEIGH_SEARCH_FIXED_DISTANCE (0)
+#define PARAM_VALUE_NEIGH_SEARCH_KNN            (1)
+
+#define PARAM_NAME_NEIGH_SEARCH_PARAMS        "neigh_search_params"
+#define PARAM_DEFAULT_NEIGH_SEARCH_PARAMS     ""
+
   // max label size per control point
 #define PARAM_NAME_MAX_DISTANCE               "max_label_distance"
 #define PARAM_DEFAULT_MAX_DISTANCE            (0.1)

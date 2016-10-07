@@ -86,6 +86,7 @@ add_executable(rviz_cloud_annotation_node
   src/rviz_cloud_annotation_class.cpp
   src/rviz_cloud_annotation_undo.cpp
   src/point_neighborhood.cpp
+  src/point_neighborhood_search.cpp
 
   ${MAYBE_PCL_COMMON_COLORS}
   )

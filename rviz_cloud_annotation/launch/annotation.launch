@@ -10,7 +10,8 @@
     <param name="label_names_filename" type="string" value="$(find rviz_cloud_annotation)/data/annotation_names.txt" />
 
     <param name="label_size" type="double" value="0.002" />
-    <param name="neighborhood_search_distance" type="double" value="0.01" />
+    <param name="neigh_search_type" type="int" value="0" />
+    <param name="neigh_search_params" type="string" value="0.01" />
 
     <param name="normal_importance" type="double" value="0.5" />
     <param name="color_importance" type="double" value="1.0" />
