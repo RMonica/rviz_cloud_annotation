@@ -25,6 +25,7 @@
 #include <std_msgs/UInt64MultiArray.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Empty.h>
+#include <std_msgs/Int32.h>
 
 // PCL
 #include <pcl/point_cloud.h>
@@ -159,6 +160,8 @@ class RVizCloudAnnotation
   void onUndo(const std_msgs::Empty &);
   void onRedo(const std_msgs::Empty &);
 
+  void onPointSizeChange(const std_msgs::Int32 & msg);
+
   void SendName()
   {
     std::string name = m_annotation->GetNameForLabel(m_current_label);
@@ -241,6 +244,8 @@ class RVizCloudAnnotation
   ros::Subscriber m_redo_sub;
   ros::Publisher m_undo_redo_state_pub;
 
+  ros::Subscriber m_point_size_change_sub;
+
   ros::Subscriber m_view_control_points_sub;
   ros::Subscriber m_view_cloud_sub;
   ros::Subscriber m_view_labels_sub;
@@ -254,6 +259,9 @@ class RVizCloudAnnotation
   float m_point_size;
   float m_label_size;
   float m_control_label_size;
+
+  float m_point_size_multiplier;
+  float m_point_size_change_multiplier;
 
   uint64 m_current_label;
   uint64 m_edit_mode;

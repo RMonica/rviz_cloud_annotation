@@ -54,6 +54,9 @@
 #define PARAM_NAME_COLORS_ROWS_PER_PAGE       "rviz_cloud_annotation/color_rows_per_page"
 #define PARAM_DEFAULT_COLOR_ROWS_PER_PAGE     (2)
 
+#define PARAM_NAME_POINT_SIZE_CHANGE_MULT     "rviz_cloud_annotation/point_change_size_multiplier"
+#define PARAM_DEFAULT_POINT_SIZE_CHANGE_MULT  (0.2)
+
 #define PARAM_NAME_SET_CURRENT_LABEL_TOPIC    "rviz_cloud_annotation/set_current_label_topic"
 #define PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC "/rviz_cloud_annotation/set_current_label"
 
@@ -99,9 +102,12 @@
 #define PARAM_NAME_UNDO_REDO_STATE_TOPIC      "rviz_cloud_annotation/undo_redo_state_topic"
 #define PARAM_DEFAULT_UNDO_REDO_STATE_TOPIC   "/rviz_cloud_annotation/undo_redo_state"
 
+#define PARAM_NAME_POINT_SIZE_CHANGE_TOPIC    "rviz_cloud_annotation/point_size_change_topic"
+#define PARAM_DEFAULT_POINT_SIZE_CHANGE_TOPIC "/rviz_cloud_annotation/point_size_change"
+
 // parameters for smart labeling
   // neighborhood graph distance
-#define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance"
+#define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance" // DEPRECATED
 #define PARAM_DEFAULT_NEIGH_SEARCH_DISTANCE   (0.02)
 
 #define PARAM_NAME_NEIGH_SEARCH_TYPE          "neigh_search_type"
@@ -133,5 +139,9 @@
 #define EDIT_MODE_ERASER                      (2)
 #define EDIT_MODE_COLOR_PICKER                (3)
 #define EDIT_MODE_MAX                         (4)
+
+#define POINT_SIZE_CHANGE_BIGGER              (1)
+#define POINT_SIZE_CHANGE_SMALLER             (-1)
+#define POINT_SIZE_CHANGE_RESET               (0)
 
 #endif // RVIZ_CLOUD_ANNOTATION_H

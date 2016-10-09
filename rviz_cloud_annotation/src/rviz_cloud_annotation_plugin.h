@@ -65,6 +65,10 @@ namespace rviz_cloud_annotation
     void onViewControlPointsToggled(const bool checked);
     void onViewLabelsToggled(const bool checked);
 
+    void onSmallerPoints();
+    void onBiggerPoints();
+    void onResetPointsSize();
+
     private:
     void SetCurrentEditMode(const uint64 mode);
 
@@ -118,6 +122,8 @@ namespace rviz_cloud_annotation
     ros::Publisher m_redo_pub;
     ros::Publisher m_undo_pub;
     ros::Subscriber m_undo_redo_state_sub;
+
+    ros::Publisher m_point_size_change_pub;
 
     QPushButton * m_edit_none_button;
     QPushButton * m_edit_control_point_button;

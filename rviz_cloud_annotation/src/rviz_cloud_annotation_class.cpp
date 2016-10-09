@@ -136,8 +136,15 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_nh.param<std::string>(PARAM_NAME_REDO_TOPIC,param_string,PARAM_DEFAULT_REDO_TOPIC);
   m_redo_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onRedo,this);
 
+  m_nh.param<std::string>(PARAM_NAME_POINT_SIZE_CHANGE_TOPIC,param_string,PARAM_DEFAULT_POINT_SIZE_CHANGE_TOPIC);
+  m_point_size_change_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onPointSizeChange,this);
+
+  m_nh.param<float>(PARAM_NAME_POINT_SIZE_CHANGE_MULT,m_point_size_change_multiplier,PARAM_DEFAULT_POINT_SIZE_CHANGE_MULT);
+
   m_current_label = 1;
   m_edit_mode = EDIT_MODE_NONE;
+
+  m_point_size_multiplier = 1.0;
 
   m_view_cloud = m_view_labels = m_view_control_points = true;
 
@@ -164,7 +171,7 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarke
 
   Marker cloud_marker;
   cloud_marker.type = Marker::LINE_LIST;
-  cloud_marker.scale.x = m_control_label_size / 2.0;
+  cloud_marker.scale.x = m_point_size_multiplier * m_control_label_size / 2.0;
   cloud_marker.scale.y = 0.0;
   cloud_marker.scale.z = 0.0;
   cloud_marker.color.r = float(color.r) / 255.0;
@@ -181,9 +188,9 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarke
     cloud_marker.points[i * 2].y = pt.y;
     cloud_marker.points[i * 2].z = pt.z;
 
-    cloud_marker.points[i * 2 + 1].x = pt.x + pt.normal_x * m_control_label_size;
-    cloud_marker.points[i * 2 + 1].y = pt.y + pt.normal_y * m_control_label_size;
-    cloud_marker.points[i * 2 + 1].z = pt.z + pt.normal_z * m_control_label_size;
+    cloud_marker.points[i * 2 + 1].x = pt.x + pt.normal_x * m_point_size_multiplier * m_control_label_size;
+    cloud_marker.points[i * 2 + 1].y = pt.y + pt.normal_y * m_point_size_multiplier * m_control_label_size;
+    cloud_marker.points[i * 2 + 1].z = pt.z + pt.normal_z * m_point_size_multiplier * m_control_label_size;
   }
 
   visualization_msgs::InteractiveMarkerControl points_control;
@@ -221,8 +228,8 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
   else
     color = pcl::GlasbeyLUT::at((label - 1) % 256);
 
-  const float label_size = m_view_cloud ? m_label_size : m_point_size;
-  const float normal_mult = m_view_cloud ? m_label_size / 2.0 : 0.0;
+  const float label_size = m_point_size_multiplier * (m_view_cloud ? m_label_size : m_point_size);
+  const float normal_mult = m_view_cloud ? (m_label_size / 2.0) : 0.0;
 
   Marker cloud_marker;
   cloud_marker.type = Marker::POINTS;
@@ -271,9 +278,9 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::CloudToMarker(const 
 
   Marker cloud_marker;
   cloud_marker.type = Marker::POINTS;
-  cloud_marker.scale.x = m_point_size;
-  cloud_marker.scale.y = m_point_size;
-  cloud_marker.scale.z = m_point_size;
+  cloud_marker.scale.x = m_point_size_multiplier * m_point_size;
+  cloud_marker.scale.y = m_point_size_multiplier * m_point_size;
+  cloud_marker.scale.z = m_point_size_multiplier * m_point_size;
   cloud_marker.color.r = 1.0;
   cloud_marker.color.g = 1.0;
   cloud_marker.color.b = 1.0;
@@ -614,6 +621,34 @@ void RVizCloudAnnotation::onClear(const std_msgs::UInt32 & label_msg)
   SendControlPointsMarker(changed,true);
   SendName();
   SendUndoRedoState();
+}
+
+void RVizCloudAnnotation::onPointSizeChange(const std_msgs::Int32 & msg)
+{
+  switch (msg.data)
+  {
+    case POINT_SIZE_CHANGE_BIGGER:
+      if (m_point_size_multiplier > 1e5)
+        return;
+      m_point_size_multiplier *= (1.0 + m_point_size_change_multiplier);
+      break;
+    case POINT_SIZE_CHANGE_SMALLER:
+      if (m_point_size_multiplier < 1e-5)
+        return;
+      m_point_size_multiplier /= (1.0 + m_point_size_change_multiplier);
+      break;
+    case POINT_SIZE_CHANGE_RESET:
+      if (m_point_size_multiplier == 1.0)
+        return;
+      m_point_size_multiplier = 1.0;
+      break;
+    default:
+      return;
+  }
+
+  ROS_INFO("rviz_cloud_annotation: point size multiplier is now: %f",float(m_point_size_multiplier));
+  SendCloudMarker(false);
+  SendControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),true);
 }
 
 void RVizCloudAnnotation::ClearControlPointsMarker(const Uint64Vector & indices,const bool apply)

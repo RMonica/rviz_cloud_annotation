@@ -31,6 +31,7 @@
 #include <std_msgs/UInt32.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/Int32.h>
 
 // PCL
 #include <pcl/common/colors.h>
@@ -114,6 +115,9 @@ namespace rviz_cloud_annotation
 
       m_nh.param<std::string>(PARAM_NAME_UNDO_REDO_STATE_TOPIC,param_string,PARAM_DEFAULT_UNDO_REDO_STATE_TOPIC);
       m_undo_redo_state_sub = m_nh.subscribe(param_string,1,&QRVizCloudAnnotation::onUndoRedoState,this);
+
+      m_nh.param<std::string>(PARAM_NAME_POINT_SIZE_CHANGE_TOPIC,param_string,PARAM_DEFAULT_POINT_SIZE_CHANGE_TOPIC);
+      m_point_size_change_pub = m_nh.advertise<std_msgs::Int32>(param_string,1);
     }
 
     QBoxLayout * main_layout = new QBoxLayout(QBoxLayout::TopToBottom,this);
@@ -149,6 +153,23 @@ namespace rviz_cloud_annotation
       m_redo_action->setShortcut(QKeySequence("Shift+U"));
       edit_menu->addAction(m_redo_action);
       connect(m_redo_action,&QAction::triggered,this,&QRVizCloudAnnotation::onRedo);
+
+      QMenu * view_menu = menu_bar->addMenu("View");
+
+      QAction * bigger_points_action = new QAction("Increase point size",menu_bar);
+      bigger_points_action->setShortcut(QKeySequence("Shift+O"));
+      view_menu->addAction(bigger_points_action);
+      connect(bigger_points_action,&QAction::triggered,this,&QRVizCloudAnnotation::onBiggerPoints);
+
+      QAction * smaller_points_action = new QAction("Decrease point size",menu_bar);
+      smaller_points_action->setShortcut(QKeySequence("O"));
+      view_menu->addAction(smaller_points_action);
+      connect(smaller_points_action,&QAction::triggered,this,&QRVizCloudAnnotation::onSmallerPoints);
+
+      QAction * reset_points_size_action = new QAction("Reset point size",menu_bar);
+      reset_points_size_action->setShortcut(QKeySequence("Alt+O"));
+      view_menu->addAction(reset_points_size_action);
+      connect(reset_points_size_action,&QAction::triggered,this,&QRVizCloudAnnotation::onResetPointsSize);
 
       QMenu * label_menu = menu_bar->addMenu("Label");
 
@@ -545,6 +566,27 @@ namespace rviz_cloud_annotation
   {
     if (m_current_page > 0)
       SetCurrentLabel(GetFirstLabelForPage(m_current_page - 1),m_current_page - 1);
+  }
+
+  void QRVizCloudAnnotation::onBiggerPoints()
+  {
+    std_msgs::Int32 msg;
+    msg.data = POINT_SIZE_CHANGE_BIGGER;
+    m_point_size_change_pub.publish(msg);
+  }
+
+  void QRVizCloudAnnotation::onSmallerPoints()
+  {
+    std_msgs::Int32 msg;
+    msg.data = POINT_SIZE_CHANGE_SMALLER;
+    m_point_size_change_pub.publish(msg);
+  }
+
+  void QRVizCloudAnnotation::onResetPointsSize()
+  {
+    std_msgs::Int32 msg;
+    msg.data = POINT_SIZE_CHANGE_RESET;
+    m_point_size_change_pub.publish(msg);
   }
 
   void QRVizCloudAnnotation::onSave()
