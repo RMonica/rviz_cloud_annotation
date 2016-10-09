@@ -106,9 +106,11 @@
 
 #define PARAM_NAME_NEIGH_SEARCH_TYPE          "neigh_search_type"
 #define PARAM_DEFAULT_NEIGH_SEARCH_TYPE       (0)
-#define PARAM_VALUE_NEIGH_SEARCH_FIXED_DISTANCE (0)
-#define PARAM_VALUE_NEIGH_SEARCH_KNN            (1)
+#define PARAM_VALUE_NEIGH_SEARCH_FIXED_DISTANCE (0) // neigh_search_params is the distance (float)
+#define PARAM_VALUE_NEIGH_SEARCH_KNN_ATMOST     (1) // neigh_search_params is the maximum number of neighbors (integer)
+#define PARAM_VALUE_NEIGH_SEARCH_KNN_ATLEAST    (2) // neigh_search_params is the minimum number of neighbors (integer)
 
+// this is always a string, content depends on neigh_search_type
 #define PARAM_NAME_NEIGH_SEARCH_PARAMS        "neigh_search_params"
 #define PARAM_DEFAULT_NEIGH_SEARCH_PARAMS     ""
 

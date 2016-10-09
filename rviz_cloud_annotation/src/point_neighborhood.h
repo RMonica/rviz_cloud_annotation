@@ -21,7 +21,9 @@ class PointNeighborhood
   public:
   typedef uint64_t uint64;
   typedef std::vector<uint64> Uint64Vector;
+  typedef std::vector<Uint64Vector> Uint64VectorVector;
   typedef std::vector<float> FloatVector;
+  typedef std::vector<FloatVector> FloatVectorVector;
 
   typedef pcl::PointXYZRGBNormal PointXYZRGBNormal;
   typedef pcl::PointCloud<PointXYZRGBNormal> PointXYZRGBNormalCloud;
@@ -69,6 +71,9 @@ class PointNeighborhood
   const Conf & GetConf() const {return m_conf; }
 
   private:
+  void RemoveUnidirectionalLinks(Uint64Vector & temporary_indices_vector);
+  void AddUnidirectionalLinks(Uint64Vector & temporary_indices_vector);
+
   NeighsVector m_index;
   Uint64Vector m_neighbors;
   FloatVector m_total_dists;

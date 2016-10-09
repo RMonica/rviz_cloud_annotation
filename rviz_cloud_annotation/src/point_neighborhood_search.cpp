@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2016, Riccardo Monica
+ */
+
 #include "point_neighborhood_search.h"
 
 #include <cmath>
@@ -7,7 +11,7 @@
 class PointNeighborhoodSearch::FixedDistanceSearcher: public PointNeighborhoodSearch::Searcher
 {
   public:
-  FixedDistanceSearcher(const float search_distance): m_search_distance(search_distance) {}
+  explicit FixedDistanceSearcher(const float search_distance): m_search_distance(search_distance) {}
 
   void Search(const KdTree & kdtree,
               const PointXYZRGBNormal & center,
@@ -37,7 +41,7 @@ class PointNeighborhoodSearch::FixedDistanceSearcher: public PointNeighborhoodSe
 
   uint64 GetId() const {return PARAM_VALUE_NEIGH_SEARCH_FIXED_DISTANCE; }
 
-  bool BiunivocalityGuaranteed() const {return true; }
+  bool IsPostProcessingRequired(const PostProcessingType) const {return false; }
 
   private:
   float m_search_distance;
@@ -46,7 +50,7 @@ class PointNeighborhoodSearch::FixedDistanceSearcher: public PointNeighborhoodSe
 class PointNeighborhoodSearch::KNearestNeighborsSearcher: public PointNeighborhoodSearch::Searcher
 {
   public:
-  KNearestNeighborsSearcher(const uint32 knn): m_knn(knn) {}
+  explicit KNearestNeighborsSearcher(const uint32 knn): m_knn(knn) {}
 
   void Search(const KdTree & kdtree,
               const PointXYZRGBNormal & center,
@@ -68,7 +72,7 @@ class PointNeighborhoodSearch::KNearestNeighborsSearcher: public PointNeighborho
 
   void Serialize(std::ostream & ofile) const
   {
-    const uint64 id = PARAM_VALUE_NEIGH_SEARCH_KNN;
+    const uint64 id = GetId();
     ofile.write((const char *)&id,sizeof(id));
     ofile.write((const char *)&m_knn,sizeof(m_knn));
   }
@@ -81,15 +85,27 @@ class PointNeighborhoodSearch::KNearestNeighborsSearcher: public PointNeighborho
   bool ApproxEquals(const Searcher & other) const
   {
     const KNearestNeighborsSearcher * const fds = dynamic_cast<const KNearestNeighborsSearcher *>(&other);
-    return fds && (fds->m_knn == m_knn);
+    return fds && (fds->m_knn == m_knn) && (fds->GetId() == GetId());
   }
-
-  uint64 GetId() const {return PARAM_VALUE_NEIGH_SEARCH_KNN; }
-
-  bool BiunivocalityGuaranteed() const {return false; }
 
   private:
   uint32 m_knn;
+};
+
+class PointNeighborhoodSearch::KNearestNeighborsSearcherAtleast: public PointNeighborhoodSearch::KNearestNeighborsSearcher
+{
+  public:
+  explicit KNearestNeighborsSearcherAtleast(const uint32 knn): KNearestNeighborsSearcher(knn) {}
+  uint64 GetId() const {return PARAM_VALUE_NEIGH_SEARCH_KNN_ATLEAST; }
+  bool IsPostProcessingRequired(const PostProcessingType type) const {return type == PPTYPE_COMPLETE_UNIDIRECTIONAL_LINKS; }
+};
+
+class PointNeighborhoodSearch::KNearestNeighborsSearcherAtmost: public PointNeighborhoodSearch::KNearestNeighborsSearcher
+{
+  public:
+  explicit KNearestNeighborsSearcherAtmost(const uint32 knn): KNearestNeighborsSearcher(knn) {}
+  uint64 GetId() const {return PARAM_VALUE_NEIGH_SEARCH_KNN_ATMOST; }
+  bool IsPostProcessingRequired(const PostProcessingType type) const {return type == PPTYPE_REMOVE_UNIDIRECTIONAL_LINKS; }
 };
 
 PointNeighborhoodSearch::Searcher::ConstPtr PointNeighborhoodSearch::CreateFromString(const uint64 id,const std::string & param)
@@ -109,12 +125,25 @@ PointNeighborhoodSearch::Searcher::ConstPtr PointNeighborhoodSearch::CreateFromS
                               param + std::string("\" instead."));
       }
     }
-    case PARAM_VALUE_NEIGH_SEARCH_KNN:
+    case PARAM_VALUE_NEIGH_SEARCH_KNN_ATMOST:
     {
       try
       {
         const uint32 knn = boost::lexical_cast<uint32>(param);
-        return Searcher::Ptr(new KNearestNeighborsSearcher(knn));
+        return Searcher::Ptr(new KNearestNeighborsSearcherAtmost(knn));
+      }
+      catch (const boost::bad_lexical_cast &)
+      {
+        throw ParserException(std::string("Parameter for knn search must be an integer, it is \"") +
+                              param + std::string("\" instead."));
+      }
+    }
+    case PARAM_VALUE_NEIGH_SEARCH_KNN_ATLEAST:
+    {
+      try
+      {
+        const uint32 knn = boost::lexical_cast<uint32>(param);
+        return Searcher::Ptr(new KNearestNeighborsSearcherAtleast(knn));
       }
       catch (const boost::bad_lexical_cast &)
       {
@@ -146,14 +175,23 @@ PointNeighborhoodSearch::Searcher::ConstPtr PointNeighborhoodSearch::CreateFromI
 
       return Searcher::Ptr(new FixedDistanceSearcher(distance));
     }
-    case PARAM_VALUE_NEIGH_SEARCH_KNN:
+    case PARAM_VALUE_NEIGH_SEARCH_KNN_ATMOST:
     {
       uint32 knn;
       ifile.read((char *)&knn,sizeof(knn));
       if (!ifile)
         throw ParserException("Unexpected EOF while reading knn search parameter.");
 
-      return Searcher::Ptr(new KNearestNeighborsSearcher(knn));
+      return Searcher::Ptr(new KNearestNeighborsSearcherAtmost(knn));
+    }
+    case PARAM_VALUE_NEIGH_SEARCH_KNN_ATLEAST:
+    {
+      uint32 knn;
+      ifile.read((char *)&knn,sizeof(knn));
+      if (!ifile)
+        throw ParserException("Unexpected EOF while reading knn search parameter.");
+
+      return Searcher::Ptr(new KNearestNeighborsSearcherAtleast(knn));
     }
     default:
       throw ParserException(std::string("Unknown search type: ") +

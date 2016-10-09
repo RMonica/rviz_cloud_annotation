@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2016, Riccardo Monica
+ */
+
 #ifndef POINT_NEIGHBORHOOD_SEARCH_H
 #define POINT_NEIGHBORHOOD_SEARCH_H
 
@@ -28,11 +32,20 @@ namespace PointNeighborhoodSearch
   typedef std::vector<int> IntVector;
   typedef std::vector<float> FloatVector;
 
+  enum PostProcessingType
+  {
+    // solve non-symmetric graph edges by removing them
+    PPTYPE_REMOVE_UNIDIRECTIONAL_LINKS,
+    // make non-symmetric graph edges symmetric by adding the opposite edge
+    PPTYPE_COMPLETE_UNIDIRECTIONAL_LINKS
+  };
+
   class Searcher
   {
     public:
     typedef boost::shared_ptr<Searcher> Ptr;
     typedef boost::shared_ptr<const Searcher> ConstPtr;
+    virtual ~Searcher() {}
 
     virtual void Search(const KdTree & kdtree,const PointXYZRGBNormal & center,
       IntVector & indices,FloatVector & distances) const = 0;
@@ -42,8 +55,7 @@ namespace PointNeighborhoodSearch
 
     virtual bool ApproxEquals(const Searcher & other) const = 0;
 
-    // if true, the searcher can guarantee that the matches are biunivocal
-    virtual bool BiunivocalityGuaranteed() const = 0;
+    virtual bool IsPostProcessingRequired(const PostProcessingType type) const = 0;
   };
 
   struct ParserException
@@ -59,6 +71,8 @@ namespace PointNeighborhoodSearch
 
   class FixedDistanceSearcher;
   class KNearestNeighborsSearcher;
+  class KNearestNeighborsSearcherAtleast;
+  class KNearestNeighborsSearcherAtmost;
 }
 
 #endif // POINT_NEIGHBORHOOD_SEARCH_H
