@@ -21,6 +21,7 @@
 #include <QAction>
 #include <QToolButton>
 #include <QStyle>
+#include <QSlider>
 
 // STL
 #include <iostream>
@@ -32,6 +33,7 @@
 #include <std_msgs/String.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Int32.h>
+#include <std_msgs/Float32.h>
 
 // PCL
 #include <pcl/common/colors.h>
@@ -118,6 +120,9 @@ namespace rviz_cloud_annotation
 
       m_nh.param<std::string>(PARAM_NAME_POINT_SIZE_CHANGE_TOPIC,param_string,PARAM_DEFAULT_POINT_SIZE_CHANGE_TOPIC);
       m_point_size_change_pub = m_nh.advertise<std_msgs::Int32>(param_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_CONTROL_POINT_WEIGHT_TOPIC,param_string,PARAM_DEFAULT_CONTROL_POINT_WEIGHT_TOPIC);
+      m_control_points_weight_pub = m_nh.advertise<std_msgs::Float32>(param_string,1);
     }
 
     QBoxLayout * main_layout = new QBoxLayout(QBoxLayout::TopToBottom,this);
@@ -301,6 +306,36 @@ namespace rviz_cloud_annotation
       connect(m_page_button_group,button_clicked_function_pointer,this,&QRVizCloudAnnotation::onLabelButtonSelected);
     }
 
+    if (false)
+    {
+      QBoxLayout * control_point_weight_layout = new QBoxLayout(QBoxLayout::LeftToRight);
+      main_layout->addLayout(control_point_weight_layout);
+
+      QLabel * weight_label = new QLabel("Weight:",this);
+      weight_label->setSizePolicy(QSizePolicy::Minimum,QSizePolicy::Preferred);
+      control_point_weight_layout->addWidget(weight_label);
+
+      m_current_control_point_weight_label = new QLabel("100%",this);
+      m_current_control_point_weight_label->setFixedWidth(m_current_control_point_weight_label->sizeHint().width());
+      m_current_control_point_weight_label->setAlignment(Qt::AlignVCenter | Qt::AlignRight);
+      m_current_control_point_weight_label->setSizePolicy(QSizePolicy::Fixed,QSizePolicy::Preferred);
+      control_point_weight_layout->addWidget(m_current_control_point_weight_label);
+
+      QSlider * weight_slider = new QSlider(Qt::Horizontal,this);
+      weight_slider->setFocusPolicy(Qt::NoFocus);
+      weight_slider->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Preferred);
+      weight_slider->setMinimum(0);
+      weight_slider->setMaximum(100);
+      weight_slider->setValue(100);
+      weight_slider->setPageStep(10);
+      weight_slider->setTracking(false);
+      weight_slider->setSingleStep(1);
+      weight_slider->setTickPosition(QSlider::NoTicks);
+      control_point_weight_layout->addWidget(weight_slider);
+      connect(weight_slider,&QSlider::sliderMoved,this,&QRVizCloudAnnotation::onControlPointWeightSliderMoved);
+      connect(weight_slider,&QSlider::valueChanged,this,&QRVizCloudAnnotation::onControlPointWeightSliderSet);
+    }
+
     {
       QBoxLayout * set_name_layout = new QBoxLayout(QBoxLayout::LeftToRight);
       main_layout->addLayout(set_name_layout);
@@ -411,6 +446,19 @@ namespace rviz_cloud_annotation
     }
 
     FillPointCounts();
+  }
+
+  void QRVizCloudAnnotation::onControlPointWeightSliderMoved(int new_value)
+  {
+    const std::string text = boost::lexical_cast<std::string>(new_value) + "%";
+    m_current_control_point_weight_label->setText(text.c_str());
+  }
+
+  void QRVizCloudAnnotation::onControlPointWeightSliderSet(int new_value)
+  {
+    std_msgs::Float32 msg;
+    msg.data = std::max(std::min(float(new_value) / 100.0,1.0),0.0);
+    m_control_points_weight_pub.publish(msg);
   }
 
   void QRVizCloudAnnotation::ColorToHex(const pcl::RGB & color,char color_hex[7])

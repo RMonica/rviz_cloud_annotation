@@ -141,10 +141,15 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
 
   m_nh.param<float>(PARAM_NAME_POINT_SIZE_CHANGE_MULT,m_point_size_change_multiplier,PARAM_DEFAULT_POINT_SIZE_CHANGE_MULT);
 
+  m_nh.param<std::string>(PARAM_NAME_CONTROL_POINT_WEIGHT_TOPIC,param_string,PARAM_DEFAULT_CONTROL_POINT_WEIGHT_TOPIC);
+  m_control_points_weight_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onControlPointWeightChange,this);
+
   m_current_label = 1;
   m_edit_mode = EDIT_MODE_NONE;
 
   m_point_size_multiplier = 1.0;
+
+  m_control_point_weight = 1.0;
 
   m_view_cloud = m_view_labels = m_view_control_points = true;
 
@@ -621,6 +626,12 @@ void RVizCloudAnnotation::onClear(const std_msgs::UInt32 & label_msg)
   SendControlPointsMarker(changed,true);
   SendName();
   SendUndoRedoState();
+}
+
+void RVizCloudAnnotation::onControlPointWeightChange(const std_msgs::Float32 & msg)
+{
+  m_control_point_weight = std::min<float>(std::max<float>(1.0 - msg.data,0.0),1.0);
+  ROS_INFO("rviz_cloud_annotation: control point weight is now: %f",float(1.0 - m_control_point_weight));
 }
 
 void RVizCloudAnnotation::onPointSizeChange(const std_msgs::Int32 & msg)

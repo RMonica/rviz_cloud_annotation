@@ -69,6 +69,9 @@ namespace rviz_cloud_annotation
     void onBiggerPoints();
     void onResetPointsSize();
 
+    void onControlPointWeightSliderMoved(int new_value);
+    void onControlPointWeightSliderSet(int new_value);
+
     private:
     void SetCurrentEditMode(const uint64 mode);
 
@@ -125,6 +128,8 @@ namespace rviz_cloud_annotation
 
     ros::Publisher m_point_size_change_pub;
 
+    ros::Publisher m_control_points_weight_pub;
+
     QPushButton * m_edit_none_button;
     QPushButton * m_edit_control_point_button;
     QPushButton * m_edit_eraser_button;
@@ -140,6 +145,8 @@ namespace rviz_cloud_annotation
     QAction * m_redo_action;
 
     QLabel * m_current_page_label;
+
+    QLabel * m_current_control_point_weight_label;
 
     PQPushButtonVector m_page_buttons;
     QButtonGroup * m_page_button_group;

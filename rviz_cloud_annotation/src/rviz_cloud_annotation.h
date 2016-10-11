@@ -105,6 +105,9 @@
 #define PARAM_NAME_POINT_SIZE_CHANGE_TOPIC    "rviz_cloud_annotation/point_size_change_topic"
 #define PARAM_DEFAULT_POINT_SIZE_CHANGE_TOPIC "/rviz_cloud_annotation/point_size_change"
 
+#define PARAM_NAME_CONTROL_POINT_WEIGHT_TOPIC "rviz_cloud_annotation/point_weight_topic"
+#define PARAM_DEFAULT_CONTROL_POINT_WEIGHT_TOPIC "/rviz_cloud_annotation/point_weight"
+
 // parameters for smart labeling
   // neighborhood graph distance
 #define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance" // DEPRECATED

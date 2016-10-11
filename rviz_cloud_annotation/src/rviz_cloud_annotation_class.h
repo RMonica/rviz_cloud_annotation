@@ -26,6 +26,7 @@
 #include <std_msgs/Bool.h>
 #include <std_msgs/Empty.h>
 #include <std_msgs/Int32.h>
+#include <std_msgs/Float32.h>
 
 // PCL
 #include <pcl/point_cloud.h>
@@ -162,6 +163,8 @@ class RVizCloudAnnotation
 
   void onPointSizeChange(const std_msgs::Int32 & msg);
 
+  void onControlPointWeightChange(const std_msgs::Float32 & msg);
+
   void SendName()
   {
     std::string name = m_annotation->GetNameForLabel(m_current_label);
@@ -254,6 +257,9 @@ class RVizCloudAnnotation
   bool m_view_control_points;
 
   ros::Publisher m_point_count_update_pub;
+
+  ros::Subscriber m_control_points_weight_sub;
+  float m_control_point_weight;
 
   std::string m_frame_id;
   float m_point_size;
