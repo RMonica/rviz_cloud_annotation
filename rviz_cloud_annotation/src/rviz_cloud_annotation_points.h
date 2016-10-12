@@ -68,25 +68,36 @@ class RVizCloudAnnotationPoints
   Uint64Vector GetLabelPointList(const uint64 label) const;
 
   // 0 if none
-  uint64 GetLabelForPoint(const uint64 idx) const {return m_labels_assoc[idx]; }
-  uint64 GetControlPointForPoint(const uint64 idx) const {return m_control_points_assoc[idx]; }
+  uint64 GetLabelForPoint(const uint64 idx) const
+  {
+    if (!m_labels_assoc[idx])
+      return 0;
+    return m_control_points[m_labels_assoc[idx] - 1].label_id;
+  }
+
+  uint64 GetControlPointForPoint(const uint64 idx) const
+  {
+    if (!m_control_points_assoc[idx])
+      return 0;
+    return m_control_points[m_control_points_assoc[idx] - 1].label_id;
+  }
 
   std::string GetNameForLabel(const uint64 label) const
   {
     if (label > GetMaxLabel())
       return "";
-    return m_control_point_names[label - 1];
+    return m_ext_label_names[label - 1];
   }
 
-  uint64 GetNextLabel() const {return m_control_points.size() + 1; }
-  uint64 GetMaxLabel() const {return m_control_points.size(); }
+  uint64 GetNextLabel() const {return m_control_points_for_label.size() + 1; }
+  uint64 GetMaxLabel() const {return m_control_points_for_label.size(); }
   uint64 GetCloudSize() const {return m_cloud_size; }
 
   uint64 GetLabelPointCount(const uint64 label) const
   {
     if (label > GetMaxLabel())
       return 0;
-    return m_control_points[label - 1].size();
+    return m_control_points_for_label[label - 1].size();
   }
 
   template <class PointT>
@@ -95,39 +106,58 @@ class RVizCloudAnnotationPoints
     void LabelCloudWithColor(pcl::PointCloud<PointT> & cloud) const;
 
   private:
-  // returns a list of labels affected by the label update
-  Uint64Vector UpdateLabels(const Uint64Vector & point_ids,const uint64 prev_label,const uint64 next_label);
+  struct ControlPoint
+  {
+    uint32 label_id;
+    uint64 point_id;
+
+    ControlPoint(const uint64 point_id,const uint32 label_id): label_id(label_id), point_id(point_id) {}
+    void Invalidate() {label_id = 0; }
+    bool Valid() const {return label_id; }
+    bool Invalid() const {return !label_id; }
+  };
+  typedef std::vector<ControlPoint> ControlPointVector;
 
   void ExpandControlPointsUntil(const uint64 label);
 
-  void RegenerateControlPointsAssoc();
   void RegenerateLabelAssoc(BoolVector & touched);
-  void UpdateLabelAssocAdded(const Uint64Vector & added_indices,const uint32 added_label,BoolVector & touched);
-  void UpdateLabelAssocDeleted(const Uint64Vector & removed_indices,const uint32 removed_label,BoolVector & touched);
-  void UpdateLabelAssocChanged(const Uint64Vector & changed_indices,const uint32 added_label,
-                               const uint32 removed_label,BoolVector & touched);
+  void UpdateLabelAssocAdded(const Uint64Vector & added_indices,BoolVector & touched);
+  void UpdateLabelAssocDeleted(const Uint64Vector & removed_indices,BoolVector & touched);
+  void UpdateLabelAssocChanged(const Uint64Vector & changed_indices,BoolVector & touched);
   static void RunRegionGrowing(const uint64 cloud_size,
-                               const Uint64VectorVector & control_points,
+                               const ControlPointVector & control_points,
                                const PointNeighborhood & point_neighborhood,
-                               Uint32Vector & labels_assoc,
+                               Uint64Vector & labels_assoc,
                                FloatVector & last_generated_tot_dists,
                                BoolVector & touched);
   static void UpdateRegionGrowing(const uint64 cloud_size,
                                   const PointNeighborhood & point_neighborhood,
                                   const Uint64Vector & seeds,
-                                  Uint32Vector & labels_assoc,
+                                  Uint64Vector & labels_assoc,
                                   FloatVector & last_generated_tot_dists,
                                   BoolVector & touched);
 
-  Uint32Vector m_control_points_assoc;
-  Uint32Vector m_labels_assoc;
-  // control points for each label
-  Uint64VectorVector m_control_points;
+  uint64 InternalSetControlPoint(const uint64 point_id,const uint32 label);
+  template <typename T>
+    static void EraseFromVector(std::vector<T> & vector,const T value);
+  Uint64Vector TouchedBoolVectorToExtLabel(const BoolVector & touched) const;
+
+  // assoc from cloud point to control point, 0 otherwise
+  Uint64Vector m_control_points_assoc;
+  // assoc from cloud point to region grown control point, 0 otherwise
+  Uint64Vector m_labels_assoc;
+  // control points
+  ControlPointVector m_control_points;
+  Uint64Vector m_erased_control_points;
+
+  // from external label to list of control points with that label
+  Uint64VectorVector m_control_points_for_label;
+
   uint64 m_cloud_size;
 
   FloatVector m_last_generated_tot_dists;
 
-  StringVector m_control_point_names;
+  StringVector m_ext_label_names;
 
   PointNeighborhood::ConstPtr m_point_neighborhood;
 };
@@ -136,7 +166,7 @@ template <class PointT>
   void RVizCloudAnnotationPoints::LabelCloud(pcl::PointCloud<PointT> & cloud) const
 {
   for (uint64 i = 0; i < m_cloud_size; i++)
-    cloud[i].label = m_labels_assoc[i];
+    cloud[i].label = (m_labels_assoc[i] ? (m_control_points[m_labels_assoc[i] - 1].label_id) : 0);
 }
 
 template <class PointT>
