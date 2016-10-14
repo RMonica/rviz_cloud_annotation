@@ -138,11 +138,8 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::GetLabelPoint
     return result;
   }
 
-  const Uint64Vector & internal_label_list = m_control_points_for_label[label - 1];
-  const Uint64Set internal_label_search(internal_label_list.begin(),internal_label_list.end());
-
   for (uint64 i = 0; i < m_cloud_size; i++)
-    if (internal_label_search.find(m_labels_assoc[i]) != internal_label_search.end())
+    if (m_labels_assoc[i] && m_control_points[m_labels_assoc[i] - 1].label_id == label)
       result.push_back(i);
 
   return result;
