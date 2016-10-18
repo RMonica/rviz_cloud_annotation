@@ -256,6 +256,20 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
     cloud_marker.points[i].z = pt.z + pt.normal_z * normal_mult;
   }
 
+  if (m_view_cloud)
+  {
+    cloud_marker.points.resize(labels_size * 2);
+
+    for(uint64 i = 0; i < labels_size; i++)
+    {
+      const PointXYZRGBNormal & pt = cloud[labels[i]];
+
+      cloud_marker.points[labels_size + i].x = pt.x - pt.normal_x * normal_mult; // point on the back
+      cloud_marker.points[labels_size + i].y = pt.y - pt.normal_y * normal_mult;
+      cloud_marker.points[labels_size + i].z = pt.z - pt.normal_z * normal_mult;
+    }
+  }
+
   visualization_msgs::InteractiveMarkerControl points_control;
   points_control.always_visible = true;
   points_control.interaction_mode = interactive ?
