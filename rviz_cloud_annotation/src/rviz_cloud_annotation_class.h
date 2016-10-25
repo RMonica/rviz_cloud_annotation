@@ -55,6 +55,8 @@ class RVizCloudAnnotation
   typedef pcl::PointXYZRGBL PointXYZRGBL;
   typedef pcl::PointCloud<PointXYZRGBL> PointXYZRGBLCloud;
   typedef pcl::KdTreeFLANN<PointXYZRGBNormal> KdTree;
+  typedef RVizCloudAnnotationPoints::CPData ControlPointData;
+  typedef RVizCloudAnnotationPoints::CPDataVector ControlPointDataVector;
 
   typedef uint64_t uint64;
   typedef uint32_t uint32;
@@ -163,7 +165,7 @@ class RVizCloudAnnotation
 
   void onPointSizeChange(const std_msgs::Int32 & msg);
 
-  void onControlPointWeightChange(const std_msgs::Float32 & msg);
+  void onControlPointWeightChange(const std_msgs::UInt32 & msg);
 
   void SendName()
   {
@@ -211,9 +213,11 @@ class RVizCloudAnnotation
 
   void SendControlPointsMarker(const Uint64Vector & changed_labels,const bool apply);
 
+  void SendControlPointMaxWeight();
+
   InteractiveMarker ControlPointsToMarker(const PointXYZRGBNormalCloud & cloud,
-                                          const Uint64Vector & control_points,
-                                          const uint64 label,const bool interactive);
+                                          const ControlPointDataVector & control_points,
+                                          const uint64 label, const bool interactive);
   InteractiveMarker LabelsToMarker(const PointXYZRGBNormalCloud & cloud,
                                    const Uint64Vector & labels,
                                    const uint64 label,const bool interactive);
@@ -259,7 +263,9 @@ class RVizCloudAnnotation
   ros::Publisher m_point_count_update_pub;
 
   ros::Subscriber m_control_points_weight_sub;
-  float m_control_point_weight;
+  ros::Publisher m_control_point_weight_max_weight_pub;
+  uint32 m_control_point_weight_step;
+  uint32 m_control_point_max_weight;
 
   std::string m_frame_id;
   float m_point_size;

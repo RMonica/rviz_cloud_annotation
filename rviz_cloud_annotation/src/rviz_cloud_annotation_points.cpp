@@ -10,6 +10,7 @@
 #include <algorithm>
 
 RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size,
+                                                     const uint32 weight_steps,
                                                      const PointNeighborhood::ConstPtr neighborhood)
 {
   m_cloud_size = cloud_size;
@@ -17,6 +18,8 @@ RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size,
   m_control_points_assoc.resize(m_cloud_size,0);
   m_labels_assoc.resize(m_cloud_size,0);
   m_last_generated_tot_dists.resize(m_cloud_size,0.0);
+
+  m_weight_steps_count = weight_steps;
 
   m_point_neighborhood = neighborhood;
 }
@@ -40,7 +43,9 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::Clear()
   return result;
 }
 
-RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPoint(const uint64 point_id,const uint64 label)
+RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPoint(const uint64 point_id,
+                                                                                   const uint32 weight_step,
+                                                                                   const uint64 label)
 {
   ExpandControlPointsUntil(label);
 
@@ -51,7 +56,7 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPoi
     if (label == 0)
       return Uint64Vector(); // nothing to do
 
-    const uint64 new_id = InternalSetControlPoint(point_id,label);
+    const uint64 new_id = InternalSetControlPoint(point_id,weight_step,label);
     Uint64Vector indices;
     BoolVector touched;
     indices.push_back(new_id);
@@ -72,13 +77,13 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPoi
       touched[prev_control_point_id - 1] = true;
       const Uint64Vector result = TouchedBoolVectorToExtLabel(touched);
 
-      InternalSetControlPoint(point_id,0);
+      InternalSetControlPoint(point_id,0,0);
 
       return result;
     }
     else // if (label != 0)
     {
-      InternalSetControlPoint(point_id,label);
+      InternalSetControlPoint(point_id,weight_step,label);
       Uint64Vector result;
       result.push_back(label);
       result.push_back(prev_label);
@@ -88,37 +93,39 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPoi
 }
 
 RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPointList(
-  const Uint64Vector & point_ids,const uint64 label)
+  const CPDataVector & control_points_data,const uint64 label)
 {
-  const Uint64Vector all_labels(point_ids.size(),label);
-  return SetControlPointList(point_ids,all_labels);
+  CPDataVector cpdatas = control_points_data;
+  for (uint64 i = 0; i < cpdatas.size(); i++)
+    cpdatas[i].label_id = label;
+  return SetControlPointList(cpdatas);
 }
 
-RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPointList(
-  const Uint64Vector & point_ids,const Uint64Vector & labels)
+RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPointList(const CPDataVector & control_points_data)
 {
   Uint64Set touched;
 
-  const uint64 size = point_ids.size();
+  const uint64 size = control_points_data.size();
   for (uint64 i = 0; i < size; i++)
   {
-    const Uint64Vector local_touched = SetControlPoint(point_ids[i],labels[i]);
+    const CPData & data = control_points_data[i];
+    const Uint64Vector local_touched = SetControlPoint(data.point_id,data.weight_step_id,data.label_id);
     touched.insert(local_touched.begin(),local_touched.end());
   }
 
   return Uint64Vector(touched.begin(),touched.end());
 }
 
-RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::GetControlPointList(const uint64 label) const
+RVizCloudAnnotationPoints::CPDataVector RVizCloudAnnotationPoints::GetControlPointList(const uint64 label) const
 {
   if (label > GetMaxLabel())
-    return Uint64Vector();
+    return CPDataVector();
 
   const Uint64Vector & control_point_ids = m_control_points_for_label[label - 1];
-  Uint64Vector result;
+  CPDataVector result;
   result.reserve(control_point_ids.size());
   for (uint64 i = 0; i < control_point_ids.size(); i++)
-    result.push_back(m_control_points[control_point_ids[i] - 1].point_id);
+    result.push_back(m_control_points[control_point_ids[i] - 1].ToCPData());
 
   return result;
 }
@@ -307,7 +314,7 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::ClearLabel(co
   const Uint64Vector result = TouchedBoolVectorToExtLabel(touched);
 
   for (uint64 i = 0; i < control_points_ids.size(); i++)
-    InternalSetControlPoint(m_control_points[control_points_ids[i] - 1].point_id,0);
+    InternalSetControlPoint(m_control_points[control_points_ids[i] - 1].point_id,0,0);
 
   return result;
 }
@@ -330,9 +337,10 @@ void RVizCloudAnnotationPoints::ExpandControlPointsUntil(const uint64 label)
 
 #define MAGIC_STRING "ANNOTATION"
 #define MAGIC_MIN_VERSION (1)
-#define MAGIC_MAX_VERSION (3)
+#define MAGIC_MAX_VERSION (4)
 
 RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istream & ifile,
+                                                                      const uint32 weight_steps,
                                                                       PointNeighborhood::ConstPtr neighborhood)
 {
   if (!ifile)
@@ -419,7 +427,26 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
 
   }
 
-  RVizCloudAnnotationPoints::Ptr resultptr(new RVizCloudAnnotationPoints(cloud_size,neighborhood));
+  {
+    uint32 file_weight_steps;
+    if (version < 4)
+      file_weight_steps = weight_steps;
+    else
+      ifile.read((char *)&file_weight_steps,sizeof(file_weight_steps));
+
+    if (weight_steps != file_weight_steps)
+    {
+      const uint64 w = 30;
+      std::ostringstream msg;
+      msg << "Weight configuration does not match: \n"
+          << std::setw(w) << "Name" << std::setw(w) << "ROS param" << std::setw(w) << "File" << "\n"
+          << std::setw(w) << PARAM_NAME_WEIGHT_STEPS
+          << std::setw(w) << weight_steps << std::setw(w) << file_weight_steps << "\n";
+      throw IOE(msg.str());
+    }
+  }
+
+  RVizCloudAnnotationPoints::Ptr resultptr(new RVizCloudAnnotationPoints(cloud_size,weight_steps,neighborhood));
   RVizCloudAnnotationPoints & result = *resultptr;
 
   uint64 control_points_size;
@@ -440,8 +467,21 @@ RVizCloudAnnotationPoints::Ptr RVizCloudAnnotationPoints::Deserialize(std::istre
       uint64 point_index;
       ifile.read((char *)&point_index,sizeof(point_index));
       if (!ifile)
-        throw IOE("Unexpected EOF while reading content of control point " + boost::lexical_cast<std::string>(i) + ".");
-      result.InternalSetControlPoint(point_index,i + 1);
+        throw IOE("Unexpected EOF while reading point index of control point " + boost::lexical_cast<std::string>(i) + ".");
+
+      uint32 weight_step;
+      if (version >= 4)
+        ifile.read((char *)&weight_step,sizeof(weight_step));
+      else
+        weight_step = weight_steps;
+      if (!ifile)
+        throw IOE("Unexpected EOF while reading weight of control point " + boost::lexical_cast<std::string>(i) + ".");
+      if (weight_step > weight_steps)
+        throw IOE("Weight step " + boost::lexical_cast<std::string>(weight_step) + " is out of range (max is " +
+                  boost::lexical_cast<std::string>(weight_steps) + " ) " + "while reading  control point " +
+                  boost::lexical_cast<std::string>(i) + ".");
+
+      result.InternalSetControlPoint(point_index,weight_step,i + 1);
     }
   }
 
@@ -491,6 +531,9 @@ void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile) const
     const float max_distance = conf.max_distance;
     ofile.write((char *)&max_distance,sizeof(max_distance));
     conf.searcher->Serialize(ofile);
+
+    const uint32 weight_steps = GetWeightStepsCount();
+    ofile.write((char *)&weight_steps,sizeof(weight_steps));
   }
 
   const uint64 control_points_size = m_control_points_for_label.size();
@@ -503,8 +546,11 @@ void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile) const
     for (uint64 h = 0; h < control_point_size; h++)
     {
       const uint64 control_point_index = m_control_points_for_label[i][h];
-      const uint64 point_index = m_control_points[control_point_index - 1].point_id;
+      const ControlPoint & cp = m_control_points[control_point_index - 1];
+      const uint64 point_index = cp.point_id;
       ofile.write((char *)&point_index,sizeof(point_index));
+      const uint32 weight_step = cp.weight_step_id;
+      ofile.write((char *)&weight_step,sizeof(weight_step));
     }
   }
 
@@ -519,7 +565,9 @@ void RVizCloudAnnotationPoints::Serialize(std::ostream & ofile) const
     throw IOE("Write error.");
 }
 
-RVizCloudAnnotationPoints::uint64 RVizCloudAnnotationPoints::InternalSetControlPoint(const uint64 point_id,const uint32 label)
+RVizCloudAnnotationPoints::uint64 RVizCloudAnnotationPoints::InternalSetControlPoint(const uint64 point_id,
+                                                                                     const uint32 weight_step,
+                                                                                     const uint32 label)
 {
   ExpandControlPointsUntil(label);
 
@@ -527,6 +575,7 @@ RVizCloudAnnotationPoints::uint64 RVizCloudAnnotationPoints::InternalSetControlP
   if (prev_control_point_id != 0)
   {
     const uint32 prev_label = m_control_points[prev_control_point_id - 1].label_id;
+    const uint32 prev_weight = m_control_points[prev_control_point_id - 1].weight_step_id;
 
     if (label == 0)
     {
@@ -545,9 +594,17 @@ RVizCloudAnnotationPoints::uint64 RVizCloudAnnotationPoints::InternalSetControlP
       return 0;
     }
 
+    if (label == prev_label)
+    {
+      if (prev_weight != weight_step)
+        m_control_points[prev_control_point_id - 1].weight_step_id = weight_step;
+      return prev_control_point_id;
+    }
+
     // change label of control point
     EraseFromVector(m_control_points_for_label[prev_label - 1],prev_control_point_id);
     m_control_points[prev_control_point_id - 1].label_id = label;
+    m_control_points[prev_control_point_id - 1].weight_step_id = weight_step;
     m_control_points_for_label[label - 1].push_back(prev_control_point_id);
     return prev_control_point_id;
   }
@@ -556,13 +613,13 @@ RVizCloudAnnotationPoints::uint64 RVizCloudAnnotationPoints::InternalSetControlP
   uint64 new_id;
   if (m_erased_control_points.empty())
   {
-    m_control_points.push_back(ControlPoint(point_id,label));
+    m_control_points.push_back(ControlPoint(point_id,weight_step,label));
     new_id = m_control_points.size();
   }
   else // if an erased control point is present, reuse it
   {
     new_id = m_erased_control_points.back();
-    m_control_points[new_id - 1] = ControlPoint(point_id,label);
+    m_control_points[new_id - 1] = ControlPoint(point_id,weight_step,label);
     m_erased_control_points.pop_back();
   }
   m_control_points_for_label[label - 1].push_back(new_id);

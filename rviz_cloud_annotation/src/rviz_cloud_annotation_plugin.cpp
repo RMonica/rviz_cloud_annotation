@@ -122,7 +122,10 @@ namespace rviz_cloud_annotation
       m_point_size_change_pub = m_nh.advertise<std_msgs::Int32>(param_string,1);
 
       m_nh.param<std::string>(PARAM_NAME_CONTROL_POINT_WEIGHT_TOPIC,param_string,PARAM_DEFAULT_CONTROL_POINT_WEIGHT_TOPIC);
-      m_control_points_weight_pub = m_nh.advertise<std_msgs::Float32>(param_string,1);
+      m_control_points_weight_pub = m_nh.advertise<std_msgs::UInt32>(param_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_CONTROL_POINT_MAX_WEIGHT_TOPIC,param_string,PARAM_DEFAULT_CONTROL_POINT_MAX_WEIGHT_TOPIC);
+      m_control_point_max_weight_sub = m_nh.subscribe(param_string,1,&QRVizCloudAnnotation::onSetControlPointMaxWeight,this);
     }
 
     QBoxLayout * main_layout = new QBoxLayout(QBoxLayout::TopToBottom,this);
@@ -205,6 +208,31 @@ namespace rviz_cloud_annotation
       label_menu->addAction(m_next_page_action);
       m_next_page_action->setShortcut(QKeySequence("PgDown"));
       connect(m_next_page_action,&QAction::triggered,this,&QRVizCloudAnnotation::onPageDown);
+
+      label_menu->addSeparator();
+
+      m_weight_menu = label_menu->addMenu("Weight");
+      m_weight_menu->setEnabled(false);
+
+      m_prev_weight_action = new QAction("Decrease",menu_bar);
+      m_weight_menu->addAction(m_prev_weight_action);
+      m_prev_weight_action->setShortcut(QKeySequence("W"));
+      connect(m_prev_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightDec);
+
+      m_next_weight_action = new QAction("Increase",menu_bar);
+      m_weight_menu->addAction(m_next_weight_action);
+      m_next_weight_action->setShortcut(QKeySequence("Shift+W"));
+      connect(m_next_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightInc);
+
+      m_min_weight_action = new QAction("Minimum",menu_bar);
+      m_weight_menu->addAction(m_min_weight_action);
+      m_min_weight_action->setShortcut(QKeySequence("Alt+W"));
+      connect(m_min_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightMin);
+
+      m_max_weight_action = new QAction("Maximum",menu_bar);
+      m_weight_menu->addAction(m_max_weight_action);
+      m_max_weight_action->setShortcut(QKeySequence("Alt+Shift+W"));
+      connect(m_max_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightMax);
     }
 
     {
@@ -306,7 +334,6 @@ namespace rviz_cloud_annotation
       connect(m_page_button_group,button_clicked_function_pointer,this,&QRVizCloudAnnotation::onLabelButtonSelected);
     }
 
-    if (false)
     {
       QBoxLayout * control_point_weight_layout = new QBoxLayout(QBoxLayout::LeftToRight);
       main_layout->addLayout(control_point_weight_layout);
@@ -315,25 +342,28 @@ namespace rviz_cloud_annotation
       weight_label->setSizePolicy(QSizePolicy::Minimum,QSizePolicy::Preferred);
       control_point_weight_layout->addWidget(weight_label);
 
-      m_current_control_point_weight_label = new QLabel("100%",this);
+      m_current_control_point_weight_label = new QLabel("---/---",this);
       m_current_control_point_weight_label->setFixedWidth(m_current_control_point_weight_label->sizeHint().width());
       m_current_control_point_weight_label->setAlignment(Qt::AlignVCenter | Qt::AlignRight);
       m_current_control_point_weight_label->setSizePolicy(QSizePolicy::Fixed,QSizePolicy::Preferred);
       control_point_weight_layout->addWidget(m_current_control_point_weight_label);
 
-      QSlider * weight_slider = new QSlider(Qt::Horizontal,this);
+      m_current_control_point_weight_slider = new QSlider(Qt::Horizontal,this);
+      QSlider * & weight_slider = m_current_control_point_weight_slider;
       weight_slider->setFocusPolicy(Qt::NoFocus);
       weight_slider->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Preferred);
       weight_slider->setMinimum(0);
       weight_slider->setMaximum(100);
       weight_slider->setValue(100);
-      weight_slider->setPageStep(10);
+      weight_slider->setPageStep(1);
+      weight_slider->setEnabled(false);
       weight_slider->setTracking(false);
       weight_slider->setSingleStep(1);
       weight_slider->setTickPosition(QSlider::NoTicks);
       control_point_weight_layout->addWidget(weight_slider);
       connect(weight_slider,&QSlider::sliderMoved,this,&QRVizCloudAnnotation::onControlPointWeightSliderMoved);
       connect(weight_slider,&QSlider::valueChanged,this,&QRVizCloudAnnotation::onControlPointWeightSliderSet);
+      connect(weight_slider,&QSlider::valueChanged,this,&QRVizCloudAnnotation::onControlPointWeightSliderMoved);
     }
 
     {
@@ -448,17 +478,72 @@ namespace rviz_cloud_annotation
     FillPointCounts();
   }
 
+  void QRVizCloudAnnotation::onControlPointWeightInc()
+  {
+    const uint32 value = m_current_control_point_weight_slider->value();
+    if (value >= m_control_point_weight_max)
+      return;
+    m_current_control_point_weight_slider->setValue(value + 1);
+  }
+
+  void QRVizCloudAnnotation::onControlPointWeightDec()
+  {
+    const uint32 value = m_current_control_point_weight_slider->value();
+    if (value == 0)
+      return;
+    m_current_control_point_weight_slider->setValue(value - 1);
+  }
+
+  void QRVizCloudAnnotation::onControlPointWeightMax()
+  {
+    m_current_control_point_weight_slider->setValue(m_control_point_weight_max);
+  }
+
+  void QRVizCloudAnnotation::onControlPointWeightMin()
+  {
+    m_current_control_point_weight_slider->setValue(0);
+  }
+
   void QRVizCloudAnnotation::onControlPointWeightSliderMoved(int new_value)
   {
-    const std::string text = boost::lexical_cast<std::string>(new_value) + "%";
+    const std::string text = boost::lexical_cast<std::string>(new_value) + "/" +
+      boost::lexical_cast<std::string>(m_control_point_weight_max);
     m_current_control_point_weight_label->setText(text.c_str());
   }
 
   void QRVizCloudAnnotation::onControlPointWeightSliderSet(int new_value)
   {
-    std_msgs::Float32 msg;
-    msg.data = std::max(std::min(float(new_value) / 100.0,1.0),0.0);
+    m_prev_weight_action->setEnabled(uint32(new_value) > 0);
+    m_next_weight_action->setEnabled(uint32(new_value) < m_control_point_weight_max);
+    m_max_weight_action->setEnabled(uint32(new_value) < m_control_point_weight_max);
+    m_min_weight_action->setEnabled(uint32(new_value) > 0);
+
+    std_msgs::UInt32 msg;
+    msg.data = new_value;
     m_control_points_weight_pub.publish(msg);
+  }
+
+  void QRVizCloudAnnotation::onSetControlPointMaxWeight(const std_msgs::UInt32 & msg)
+  {
+    m_control_point_weight_max = msg.data;
+
+    // compute maximum length of label
+    {
+      const std::string number = boost::lexical_cast<std::string>(m_control_point_weight_max);
+      const std::string number_zeros(number.size(),'0');
+      const std::string text = number_zeros + "/" + number_zeros;
+      m_current_control_point_weight_label->setText(text.c_str());
+      m_current_control_point_weight_label->setFixedWidth(m_current_control_point_weight_label->sizeHint().width());
+    }
+
+    m_current_control_point_weight_slider->setMaximum(m_control_point_weight_max);
+    m_current_control_point_weight_slider->setValue(m_control_point_weight_max);
+    m_current_control_point_weight_slider->setEnabled(true);
+    onControlPointWeightSliderMoved(m_control_point_weight_max);
+
+    m_weight_menu->setEnabled(true);
+
+    ROS_INFO("rviz_cloud_annotation_plugin: set max weight to %u",(unsigned int)(m_control_point_weight_max));
   }
 
   void QRVizCloudAnnotation::ColorToHex(const pcl::RGB & color,char color_hex[7])

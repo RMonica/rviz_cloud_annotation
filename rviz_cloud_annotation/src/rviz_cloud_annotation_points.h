@@ -39,11 +39,23 @@ class RVizCloudAnnotationPoints
   typedef std::vector<bool> BoolVector;
   typedef std::vector<std::string> StringVector;
   typedef std::set<uint64> Uint64Set;
+  struct CPData
+  {
+    uint64 point_id;
+    uint32 weight_step_id;
+    uint32 label_id;
+
+    CPData(uint64 pi,uint32 wsi,uint32 li): point_id(pi), weight_step_id(wsi), label_id(li) {}
+    CPData(): point_id(0), weight_step_id(0), label_id(0) {}
+  };
+  typedef std::vector<CPData> CPDataVector;
 
   typedef boost::shared_ptr<const RVizCloudAnnotationPoints> ConstPtr;
   typedef boost::shared_ptr<RVizCloudAnnotationPoints> Ptr;
 
-  explicit RVizCloudAnnotationPoints(const uint64 cloud_size,const PointNeighborhood::ConstPtr neighborhood);
+  explicit RVizCloudAnnotationPoints(const uint64 cloud_size,
+                                     const uint32 weight_steps,
+                                     const PointNeighborhood::ConstPtr neighborhood);
 
   struct IOE // IO exception
   {
@@ -52,20 +64,24 @@ class RVizCloudAnnotationPoints
   };
 
   static RVizCloudAnnotationPoints::Ptr Deserialize(std::istream & ifile,
+    const uint32 weight_steps,
     PointNeighborhood::ConstPtr neighborhood);
   void Serialize(std::ostream & ofile) const;
 
   // returns the list of affected labels
-  Uint64Vector SetControlPoint(const uint64 point_id,const uint64 label);
-  Uint64Vector SetControlPointList(const Uint64Vector & point_ids,const uint64 label);
-  Uint64Vector SetControlPointList(const Uint64Vector & point_ids,const Uint64Vector & labels);
+  Uint64Vector SetControlPoint(const uint64 point_id,const uint32 weight_step,const uint64 label);
+  Uint64Vector SetControlPoint(const CPData & control_point_data);
+  Uint64Vector SetControlPointList(const CPDataVector & control_points_data,const uint64 label);
+  Uint64Vector SetControlPointList(const CPDataVector & control_points_data);
 
   Uint64Vector Clear();
   Uint64Vector ClearLabel(const uint64 label); // clear label, returns list of affected labels
   Uint64Vector SetNameForLabel(const uint64 label,const std::string & name);
 
-  Uint64Vector GetControlPointList(const uint64 label) const;
+  CPDataVector GetControlPointList(const uint64 label) const;
   Uint64Vector GetLabelPointList(const uint64 label) const;
+
+  uint64 GetWeightStepsCount() const {return m_weight_steps_count; }
 
   // 0 if none
   uint64 GetLabelForPoint(const uint64 idx) const
@@ -75,11 +91,11 @@ class RVizCloudAnnotationPoints
     return m_control_points[m_labels_assoc[idx] - 1].label_id;
   }
 
-  uint64 GetControlPointForPoint(const uint64 idx) const
+  CPData GetControlPointForPoint(const uint64 idx) const
   {
     if (!m_control_points_assoc[idx])
-      return 0;
-    return m_control_points[m_control_points_assoc[idx] - 1].label_id;
+      return CPData();
+    return m_control_points[m_control_points_assoc[idx] - 1].ToCPData();
   }
 
   std::string GetNameForLabel(const uint64 label) const
@@ -109,12 +125,16 @@ class RVizCloudAnnotationPoints
   struct ControlPoint
   {
     uint32 label_id;
+    uint32 weight_step_id;
     uint64 point_id;
 
-    ControlPoint(const uint64 point_id,const uint32 label_id): label_id(label_id), point_id(point_id) {}
+    ControlPoint(const uint64 point_id,const uint32 weight_step,const uint32 label_id):
+      label_id(label_id), weight_step_id(weight_step), point_id(point_id) {}
     void Invalidate() {label_id = 0; }
     bool Valid() const {return label_id; }
     bool Invalid() const {return !label_id; }
+
+    CPData ToCPData() const {return CPData(point_id,weight_step_id,label_id); }
   };
   typedef std::vector<ControlPoint> ControlPointVector;
 
@@ -137,7 +157,9 @@ class RVizCloudAnnotationPoints
                                   FloatVector & last_generated_tot_dists,
                                   BoolVector & touched);
 
-  uint64 InternalSetControlPoint(const uint64 point_id,const uint32 label);
+  uint64 InternalSetControlPoint(const uint64 point_id,
+                                 const uint32 weight_step,
+                                 const uint32 label);
   template <typename T>
     static void EraseFromVector(std::vector<T> & vector,const T value);
   Uint64Vector TouchedBoolVectorToExtLabel(const BoolVector & touched) const;
@@ -158,6 +180,8 @@ class RVizCloudAnnotationPoints
   FloatVector m_last_generated_tot_dists;
 
   StringVector m_ext_label_names;
+
+  uint32 m_weight_steps_count;
 
   PointNeighborhood::ConstPtr m_point_neighborhood;
 };

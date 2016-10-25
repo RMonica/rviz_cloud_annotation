@@ -23,6 +23,8 @@ class QButtonGroup;
 class QLineEdit;
 class QAction;
 class QToolButton;
+class QSlider;
+class QMenu;
 
 namespace pcl { class RGB; }
 
@@ -35,6 +37,7 @@ namespace rviz_cloud_annotation
 
     typedef uint64_t uint64;
     typedef int64_t int64;
+    typedef uint32_t uint32;
     typedef std::vector<uint64> Uint64Vector;
     typedef std::vector<QPushButton *> PQPushButtonVector;
 
@@ -71,6 +74,11 @@ namespace rviz_cloud_annotation
 
     void onControlPointWeightSliderMoved(int new_value);
     void onControlPointWeightSliderSet(int new_value);
+    void onControlPointWeightInc();
+    void onControlPointWeightDec();
+    void onControlPointWeightMax();
+    void onControlPointWeightMin();
+    void onSetControlPointMaxWeight(const std_msgs::UInt32 & msg);
 
     private:
     void SetCurrentEditMode(const uint64 mode);
@@ -129,6 +137,7 @@ namespace rviz_cloud_annotation
     ros::Publisher m_point_size_change_pub;
 
     ros::Publisher m_control_points_weight_pub;
+    ros::Subscriber m_control_point_max_weight_sub;
 
     QPushButton * m_edit_none_button;
     QPushButton * m_edit_control_point_button;
@@ -141,12 +150,20 @@ namespace rviz_cloud_annotation
     QAction * m_next_label_action;
     QAction * m_prev_label_action;
 
+    QAction * m_prev_weight_action;
+    QAction * m_next_weight_action;
+    QAction * m_min_weight_action;
+    QAction * m_max_weight_action;
+    QMenu * m_weight_menu;
+
     QAction * m_undo_action;
     QAction * m_redo_action;
 
     QLabel * m_current_page_label;
 
     QLabel * m_current_control_point_weight_label;
+    QSlider * m_current_control_point_weight_slider;
+    uint32 m_control_point_weight_max;
 
     PQPushButtonVector m_page_buttons;
     QButtonGroup * m_page_button_group;

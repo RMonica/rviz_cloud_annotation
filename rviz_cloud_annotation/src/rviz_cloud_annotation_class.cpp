@@ -62,13 +62,16 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
     m_nh.param<double>(PARAM_NAME_MAX_DISTANCE,param_double,PARAM_DEFAULT_MAX_DISTANCE);
     conf.max_distance = param_double;
 
+    m_nh.param<int>(PARAM_NAME_WEIGHT_STEPS,param_int,PARAM_DEFAULT_WEIGHT_STEPS);
+    m_control_point_max_weight = std::max<uint32>(1,param_int);
+
     ROS_INFO("rviz_cloud_annotation: building point neighborhood...");
     m_point_neighborhood = PointNeighborhood::ConstPtr(new PointNeighborhood(m_cloud,conf));
     ROS_INFO("rviz_cloud_annotation: done.");
   }
 
   RVizCloudAnnotationPoints::Ptr default_annotation = RVizCloudAnnotationPoints::Ptr(new RVizCloudAnnotationPoints(
-    m_cloud->size(),m_point_neighborhood));
+    m_cloud->size(),m_control_point_max_weight,m_point_neighborhood));
   m_annotation = default_annotation;
   m_undo_redo.SetAnnotation(default_annotation);
 
@@ -144,21 +147,25 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_nh.param<std::string>(PARAM_NAME_CONTROL_POINT_WEIGHT_TOPIC,param_string,PARAM_DEFAULT_CONTROL_POINT_WEIGHT_TOPIC);
   m_control_points_weight_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onControlPointWeightChange,this);
 
+  m_nh.param<std::string>(PARAM_NAME_CONTROL_POINT_MAX_WEIGHT_TOPIC,param_string,PARAM_DEFAULT_CONTROL_POINT_MAX_WEIGHT_TOPIC);
+  m_control_point_weight_max_weight_pub = nh.advertise<std_msgs::UInt32>(param_string,1,true);
+
   m_current_label = 1;
   m_edit_mode = EDIT_MODE_NONE;
 
   m_point_size_multiplier = 1.0;
 
-  m_control_point_weight = 1.0;
+  m_control_point_weight_step = m_control_point_max_weight;
 
   m_view_cloud = m_view_labels = m_view_control_points = true;
 
   SendCloudMarker(true);
+  SendControlPointMaxWeight();
   Restore(m_annotation_filename_in);
 }
 
 RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarker(const PointXYZRGBNormalCloud & cloud,
-                                        const Uint64Vector & control_points,
+                                        const ControlPointDataVector & control_points,
                                         const uint64 label,const bool interactive)
 {
   const uint64 control_size = control_points.size();
@@ -176,7 +183,7 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarke
 
   Marker cloud_marker;
   cloud_marker.type = Marker::LINE_LIST;
-  cloud_marker.scale.x = m_point_size_multiplier * m_control_label_size / 2.0;
+  cloud_marker.scale.x = m_control_label_size / 2.0;
   cloud_marker.scale.y = 0.0;
   cloud_marker.scale.z = 0.0;
   cloud_marker.color.r = float(color.r) / 255.0;
@@ -187,15 +194,15 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarke
   cloud_marker.points.resize(control_size * 2);
   for(uint64 i = 0; i < control_size; i++)
   {
-    const PointXYZRGBNormal & pt = cloud[control_points[i]];
+    const PointXYZRGBNormal & pt = cloud[control_points[i].point_id];
 
     cloud_marker.points[i * 2].x = pt.x;
     cloud_marker.points[i * 2].y = pt.y;
     cloud_marker.points[i * 2].z = pt.z;
 
-    cloud_marker.points[i * 2 + 1].x = pt.x + pt.normal_x * m_point_size_multiplier * m_control_label_size;
-    cloud_marker.points[i * 2 + 1].y = pt.y + pt.normal_y * m_point_size_multiplier * m_control_label_size;
-    cloud_marker.points[i * 2 + 1].z = pt.z + pt.normal_z * m_point_size_multiplier * m_control_label_size;
+    cloud_marker.points[i * 2 + 1].x = pt.x + pt.normal_x * m_control_label_size;
+    cloud_marker.points[i * 2 + 1].y = pt.y + pt.normal_y * m_control_label_size;
+    cloud_marker.points[i * 2 + 1].z = pt.z + pt.normal_z * m_control_label_size;
   }
 
   visualization_msgs::InteractiveMarkerControl points_control;
@@ -347,7 +354,7 @@ void RVizCloudAnnotation::Restore(const std::string & filename)
   RVizCloudAnnotationPoints::Ptr maybe_new_annotation;
   try
   {
-    maybe_new_annotation = RVizCloudAnnotationPoints::Deserialize(ifile,m_point_neighborhood);
+    maybe_new_annotation = RVizCloudAnnotationPoints::Deserialize(ifile,m_control_point_max_weight,m_point_neighborhood);
   }
   catch (const RVizCloudAnnotationPoints::IOE & e)
   {
@@ -549,7 +556,7 @@ RVizCloudAnnotation::uint64 RVizCloudAnnotation::GetClickedPointId(const Interac
       return 0;
     }
 
-    const Uint64Vector & control_points = m_annotation->GetControlPointList(label);
+    const ControlPointDataVector control_points = m_annotation->GetControlPointList(label);
     if (control_points.empty())
     {
       ROS_ERROR("rviz_cloud_annotation: click: control point label %u is empty!",(unsigned int)(label));
@@ -562,7 +569,7 @@ RVizCloudAnnotation::uint64 RVizCloudAnnotation::GetClickedPointId(const Interac
     float nearest_sqr_dist;
     for (uint64 i = 0; i < control_points.size(); i++)
     {
-      const PointXYZRGBNormal & pt = (*m_cloud)[control_points[i]];
+      const PointXYZRGBNormal & pt = (*m_cloud)[control_points[i].point_id];
       const Eigen::Vector3f ept(pt.x,pt.y,pt.z);
       const Eigen::Vector3f en(pt.normal_x,pt.normal_y,pt.normal_z);
       const Eigen::Vector3f shift_pt = ept + en * m_control_label_size / 2.0;
@@ -573,7 +580,7 @@ RVizCloudAnnotation::uint64 RVizCloudAnnotation::GetClickedPointId(const Interac
       }
     }
 
-    const uint64 idx = control_points[nearest_idx];
+    const uint64 idx = control_points[nearest_idx].point_id;
 
     ROS_INFO("rviz_cloud_annotation: clicked on control point: %u (accuracy: %f)",
              (unsigned int)(idx),float(std::sqrt(nearest_sqr_dist)));
@@ -642,10 +649,25 @@ void RVizCloudAnnotation::onClear(const std_msgs::UInt32 & label_msg)
   SendUndoRedoState();
 }
 
-void RVizCloudAnnotation::onControlPointWeightChange(const std_msgs::Float32 & msg)
+void RVizCloudAnnotation::SendControlPointMaxWeight()
 {
-  m_control_point_weight = std::min<float>(std::max<float>(1.0 - msg.data,0.0),1.0);
-  ROS_INFO("rviz_cloud_annotation: control point weight is now: %f",float(1.0 - m_control_point_weight));
+  std_msgs::UInt32 msg;
+  msg.data = m_control_point_max_weight;
+  m_control_point_weight_max_weight_pub.publish(msg);
+}
+
+void RVizCloudAnnotation::onControlPointWeightChange(const std_msgs::UInt32 & msg)
+{
+  const uint32 new_weight = msg.data;
+  if (new_weight > m_control_point_max_weight)
+  {
+    ROS_ERROR("rviz_cloud_annotation: could not set weight to %u, maximum is %u",(unsigned int)(new_weight),
+      (unsigned int)(m_control_point_weight_step));
+    return;
+  }
+
+  m_control_point_weight_step = new_weight;
+  ROS_INFO("rviz_cloud_annotation: control point weight is now: %u",(unsigned int)(m_control_point_weight_step));
 }
 
 void RVizCloudAnnotation::onPointSizeChange(const std_msgs::Int32 & msg)
@@ -679,7 +701,8 @@ void RVizCloudAnnotation::onPointSizeChange(const std_msgs::Int32 & msg)
 void RVizCloudAnnotation::ClearControlPointsMarker(const Uint64Vector & indices,const bool apply)
 {
   const uint64 changed_size = indices.size();
-  const Uint64Vector control_points_empty;
+  const ControlPointDataVector control_points_empty;
+  const Uint64Vector labels_empty;
   for (uint64 i = 0; i < changed_size; i++)
   {
     const uint64 label = indices[i];
@@ -687,12 +710,12 @@ void RVizCloudAnnotation::ClearControlPointsMarker(const Uint64Vector & indices,
       ControlPointsToMarker(*m_cloud,control_points_empty,label,(m_edit_mode != EDIT_MODE_NONE)),
       boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
     m_interactive_marker_server->insert(
-      LabelsToMarker(*m_cloud,control_points_empty,label,(m_edit_mode != EDIT_MODE_NONE)),
+      LabelsToMarker(*m_cloud,labels_empty,label,(m_edit_mode != EDIT_MODE_NONE)),
       boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
   }
 
   m_interactive_marker_server->insert(
-    LabelsToMarker(*m_cloud,control_points_empty,0,(m_edit_mode != EDIT_MODE_NONE)),
+    LabelsToMarker(*m_cloud,labels_empty,0,(m_edit_mode != EDIT_MODE_NONE)),
     boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
 
   if (apply)
@@ -707,7 +730,7 @@ void RVizCloudAnnotation::SendControlPointsMarker(const Uint64Vector & changed_l
     const uint64 label = changed_labels[i];
     const bool isabove = label >= m_annotation->GetNextLabel();
 
-    const Uint64Vector control_points = isabove ? Uint64Vector() : m_annotation->GetControlPointList(label);
+    const ControlPointDataVector control_points = isabove ? ControlPointDataVector() : m_annotation->GetControlPointList(label);
     m_interactive_marker_server->insert(
       ControlPointsToMarker(*m_cloud,control_points,label,(m_edit_mode != EDIT_MODE_NONE)),
       boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
@@ -755,7 +778,7 @@ void RVizCloudAnnotation::onClickOnCloud(const InteractiveMarkerFeedbackConstPtr
   if (m_edit_mode == EDIT_MODE_CONTROL_POINT)
   {
     ROS_INFO("rviz_cloud_annotation: setting label %u to point %u",(unsigned int)(m_current_label),(unsigned int)(idx));
-    const Uint64Vector changed_labels = m_undo_redo.SetControlPoint(idx,m_current_label);
+    const Uint64Vector changed_labels = m_undo_redo.SetControlPoint(idx,m_control_point_weight_step,m_current_label);
     SendControlPointsMarker(changed_labels,true);
     SendPointCounts(changed_labels);
     SendUndoRedoState();
@@ -763,7 +786,7 @@ void RVizCloudAnnotation::onClickOnCloud(const InteractiveMarkerFeedbackConstPtr
   else if (m_edit_mode == EDIT_MODE_ERASER)
   {
     ROS_INFO("rviz_cloud_annotation: eraser: erasing label from point %u",(unsigned int)(idx));
-    const Uint64Vector changed_labels = m_undo_redo.SetControlPoint(idx,0);
+    const Uint64Vector changed_labels = m_undo_redo.SetControlPoint(idx,0,0);
     SendControlPointsMarker(changed_labels,true);
     SendPointCounts(changed_labels);
     SendUndoRedoState();

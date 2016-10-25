@@ -108,6 +108,9 @@
 #define PARAM_NAME_CONTROL_POINT_WEIGHT_TOPIC "rviz_cloud_annotation/point_weight_topic"
 #define PARAM_DEFAULT_CONTROL_POINT_WEIGHT_TOPIC "/rviz_cloud_annotation/point_weight"
 
+#define PARAM_NAME_CONTROL_POINT_MAX_WEIGHT_TOPIC "rviz_cloud_annotation/point_max_weight_topic"
+#define PARAM_DEFAULT_CONTROL_POINT_MAX_WEIGHT_TOPIC "/rviz_cloud_annotation/point_max_weight"
+
 // parameters for smart labeling
   // neighborhood graph distance
 #define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance" // DEPRECATED
@@ -136,6 +139,10 @@
 #define PARAM_NAME_NORMAL_IMPORTANCE          "normal_importance"
 #define PARAM_DEFAULT_NORMAL_IMPORTANCE       (0.0)
 // end parameters for smart labeling
+
+// this number of weight steps, plus the step 0
+#define PARAM_NAME_WEIGHT_STEPS               "weight_steps"
+#define PARAM_DEFAULT_WEIGHT_STEPS            (10)
 
 #define EDIT_MODE_NONE                        (0)
 #define EDIT_MODE_CONTROL_POINT               (1)

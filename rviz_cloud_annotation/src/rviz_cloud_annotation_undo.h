@@ -25,6 +25,8 @@ class RVizCloudAnnotationUndo
   typedef std::vector<uint64> Uint64Vector;
   typedef std::vector<uint32> Uint32Vector;
   typedef std::vector<std::string> StringVector;
+  typedef RVizCloudAnnotationPoints::CPData ControlPointData;
+  typedef RVizCloudAnnotationPoints::CPDataVector ControlPointDataVector;
 
   RVizCloudAnnotationUndo();
 
@@ -52,12 +54,15 @@ class RVizCloudAnnotationUndo
     Action::Ptr Inverse() const;
     std::string GetDescription() const;
 
-    SetControlPointAction(const uint64 idx,const uint32 prev_label,const uint32 next_label);
+    SetControlPointAction(const uint64 idx,const uint32 prev_label,const uint32 prev_weight_step,
+                          const uint32 next_label,const uint32 next_weight_step);
 
     private:
     uint64 m_idx;
     uint32 m_prev_label;
     uint32 m_next_label;
+    uint32 m_prev_weight_step;
+    uint32 m_next_weight_step;
   };
 
   class SetNameForLabelAction: public Action
@@ -82,10 +87,10 @@ class RVizCloudAnnotationUndo
     Action::Ptr Inverse() const;
     std::string GetDescription() const;
 
-    ClearLabelAction(const uint32 label,const Uint64Vector & prev_control_points);
+    ClearLabelAction(const uint32 label,const ControlPointDataVector & prev_control_points);
 
     private:
-    Uint64Vector m_prev_control_points;
+    ControlPointDataVector m_prev_control_points;
     uint32 m_label;
   };
 
@@ -96,10 +101,10 @@ class RVizCloudAnnotationUndo
     Action::Ptr Inverse() const;
     std::string GetDescription() const;
 
-    RestoreLabelAction(const uint32 label,const Uint64Vector & control_points);
+    RestoreLabelAction(const uint32 label,const ControlPointDataVector & control_points);
 
     private:
-    Uint64Vector m_control_points;
+    ControlPointDataVector m_control_points;
     uint32 m_label;
   };
 
@@ -110,11 +115,10 @@ class RVizCloudAnnotationUndo
     Action::Ptr Inverse() const;
     std::string GetDescription() const;
 
-    ClearAction(const Uint64Vector & labels,const Uint64Vector & control_points,const StringVector & names);
+    ClearAction(const ControlPointDataVector & control_points,const StringVector & names);
 
     private:
-    Uint64Vector m_prev_control_points;
-    Uint64Vector m_labels;
+    ControlPointDataVector m_prev_control_points;
     StringVector m_names;
   };
 
@@ -125,15 +129,14 @@ class RVizCloudAnnotationUndo
     Action::Ptr Inverse() const;
     std::string GetDescription() const;
 
-    RestoreAction(const Uint64Vector & labels,const Uint64Vector & control_points,const StringVector & names);
+    RestoreAction(const ControlPointDataVector & control_points,const StringVector & names);
 
     private:
-    Uint64Vector m_control_points;
-    Uint64Vector m_labels;
+    ControlPointDataVector m_control_points;
     StringVector m_names;
   };
 
-  Uint64Vector SetControlPoint(const uint64 idx,const uint32 next_label);
+  Uint64Vector SetControlPoint(const uint64 idx,const uint32 weight_step,const uint32 next_label);
   Uint64Vector Clear();
   Uint64Vector ClearLabel(const uint32 label);
   Uint64Vector SetNameForLabel(const uint32 label,const std::string & name);
