@@ -40,6 +40,10 @@
 #define PARAM_NAME_CONTROL_LABEL_SIZE         "control_label_size"
 #define PARAM_DEFAULT_CONTROL_LABEL_SIZE      (0.02)
 
+// shows labels in the back of the points as well
+#define PARAM_NAME_SHOW_POINTS_BACK_LABELS    "show_labels_back"
+#define PARAM_DEFAULT_SHOW_POINTS_BACK_LABELS (true)
+
 // from interface to backend
 #define PARAM_NAME_SET_EDIT_MODE_TOPIC        "rviz_cloud_annotation/set_edit_mode_topic"
 #define PARAM_DEFAULT_SET_EDIT_MODE_TOPIC     "/rviz_cloud_annotation/set_edit_mode"

@@ -86,6 +86,8 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_nh.param<double>(PARAM_NAME_CONTROL_LABEL_SIZE,param_double,PARAM_DEFAULT_CONTROL_LABEL_SIZE);
   m_control_label_size = param_double;
 
+  m_nh.param<bool>(PARAM_NAME_SHOW_POINTS_BACK_LABELS,m_show_points_back_labels,PARAM_DEFAULT_SHOW_POINTS_BACK_LABELS);
+
   m_nh.param<std::string>(PARAM_NAME_SAVE_TOPIC,param_string,PARAM_DEFAULT_SAVE_TOPIC);
   m_save_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSave,this);
 
@@ -263,7 +265,7 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
     cloud_marker.points[i].z = pt.z + pt.normal_z * normal_mult;
   }
 
-  if (m_view_cloud)
+  if (m_view_cloud && m_show_points_back_labels)
   {
     cloud_marker.points.resize(labels_size * 2);
 

@@ -275,6 +275,8 @@ class RVizCloudAnnotation
   float m_point_size_multiplier;
   float m_point_size_change_multiplier;
 
+  bool m_show_points_back_labels;
+
   uint64 m_current_label;
   uint64 m_edit_mode;
 
