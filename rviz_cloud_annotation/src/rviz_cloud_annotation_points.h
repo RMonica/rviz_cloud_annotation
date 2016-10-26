@@ -23,6 +23,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include "point_neighborhood.h"
+#include "rviz_cloud_annotation_point_plane.h"
 
 class RVizCloudAnnotationPoints
 {
@@ -49,6 +50,8 @@ class RVizCloudAnnotationPoints
     CPData(): point_id(0), weight_step_id(0), label_id(0) {}
   };
   typedef std::vector<CPData> CPDataVector;
+  typedef RVizCloudAnnotationPointsPointPlane PointPlane;
+  typedef std::vector<PointPlane::Ptr> PointPlanePtrVector;
 
   typedef boost::shared_ptr<const RVizCloudAnnotationPoints> ConstPtr;
   typedef boost::shared_ptr<RVizCloudAnnotationPoints> Ptr;
@@ -138,24 +141,18 @@ class RVizCloudAnnotationPoints
   };
   typedef std::vector<ControlPoint> ControlPointVector;
 
-  void ExpandControlPointsUntil(const uint64 label);
+  void ExpandLabelsUntil(const uint64 label);
+  void ExpandPointPlane(const uint32 weight_id);
 
   void RegenerateLabelAssoc(BoolVector & touched);
-  void UpdateLabelAssocAdded(const Uint64Vector & added_indices,BoolVector & touched);
-  void UpdateLabelAssocDeleted(const Uint64Vector & removed_indices,BoolVector & touched);
-  void UpdateLabelAssocChanged(const Uint64Vector & changed_indices,BoolVector & touched);
-  static void RunRegionGrowing(const uint64 cloud_size,
-                               const ControlPointVector & control_points,
-                               const PointNeighborhood & point_neighborhood,
-                               Uint64Vector & labels_assoc,
-                               FloatVector & last_generated_tot_dists,
-                               BoolVector & touched);
-  static void UpdateRegionGrowing(const uint64 cloud_size,
-                                  const PointNeighborhood & point_neighborhood,
-                                  const Uint64Vector & seeds,
-                                  Uint64Vector & labels_assoc,
-                                  FloatVector & last_generated_tot_dists,
-                                  BoolVector & touched);
+  void UpdateLabelAssocAdded(const uint64 added_index,
+                             const uint32 added_weight,
+                             BoolVector & touched);
+  void UpdateLabelAssocDeleted(const uint64 removed_index,BoolVector & touched_labels);
+  void UpdateLabelAssocDeletedVector(const Uint64Vector & removed_indices,BoolVector & touched);
+
+  void UpdateMainWeightPlane(const BoolVector & touched_points,BoolVector & touched);
+  void RebuildMainWeightPlane(BoolVector & touched);
 
   uint64 InternalSetControlPoint(const uint64 point_id,
                                  const uint32 weight_step,
@@ -174,6 +171,7 @@ class RVizCloudAnnotationPoints
 
   // from external label to list of control points with that label
   Uint64VectorVector m_control_points_for_label;
+  Uint64VectorVector m_control_points_for_weight;
 
   uint64 m_cloud_size;
 
@@ -181,6 +179,7 @@ class RVizCloudAnnotationPoints
 
   StringVector m_ext_label_names;
 
+  PointPlanePtrVector m_weight_steps_planes;
   uint32 m_weight_steps_count;
 
   PointNeighborhood::ConstPtr m_point_neighborhood;

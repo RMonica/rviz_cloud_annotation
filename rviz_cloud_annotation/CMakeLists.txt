@@ -83,6 +83,8 @@ include_directories(
 add_executable(rviz_cloud_annotation_node
   src/rviz_cloud_annotation.cpp
   src/rviz_cloud_annotation_points.cpp
+  src/rviz_cloud_annotation_points_io.cpp
+  src/rviz_cloud_annotation_point_plane.cpp
   src/rviz_cloud_annotation_class.cpp
   src/rviz_cloud_annotation_undo.cpp
   src/point_neighborhood.cpp
