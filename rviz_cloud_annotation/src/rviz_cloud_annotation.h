@@ -44,6 +44,10 @@
 #define PARAM_NAME_SHOW_POINTS_BACK_LABELS    "show_labels_back"
 #define PARAM_DEFAULT_SHOW_POINTS_BACK_LABELS (true)
 
+// [0..1] 0: size not affected by weight - 1: whole size affected
+#define PARAM_NAME_CP_WEIGHT_SCALE_FRACTION   "control_point_weight_scale_fraction"
+#define PARAM_DEFAULT_CP_WEIGHT_SCALE_FRACTION (0.5)
+
 // from interface to backend
 #define PARAM_NAME_SET_EDIT_MODE_TOPIC        "rviz_cloud_annotation/set_edit_mode_topic"
 #define PARAM_DEFAULT_SET_EDIT_MODE_TOPIC     "/rviz_cloud_annotation/set_edit_mode"
