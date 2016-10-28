@@ -167,6 +167,11 @@ class RVizCloudAnnotation
 
   void onControlPointWeightChange(const std_msgs::UInt32 & msg);
 
+  void onGotoFirstUnused(const std_msgs::Empty &);
+  void onGotoLastUnused(const std_msgs::Empty &);
+  void onGotoFirst(const std_msgs::Empty &);
+  void onGotoNextUnused(const std_msgs::Empty &);
+
   void SendName()
   {
     std::string name = m_annotation->GetNameForLabel(m_current_label);
@@ -199,15 +204,7 @@ class RVizCloudAnnotation
     return result;
   }
 
-  void SendCloudMarker(const bool apply)
-  {
-    m_interactive_marker_server->insert(
-      CloudToMarker(*m_cloud,(m_edit_mode != EDIT_MODE_NONE)),
-      boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
-
-    if (apply)
-      m_interactive_marker_server->applyChanges();
-  }
+  void SendCloudMarker(const bool apply);
 
   void ClearControlPointsMarker(const Uint64Vector & indices,const bool apply);
 
@@ -252,6 +249,11 @@ class RVizCloudAnnotation
   ros::Publisher m_undo_redo_state_pub;
 
   ros::Subscriber m_point_size_change_sub;
+
+  ros::Subscriber m_goto_first_unused_sub;
+  ros::Subscriber m_goto_last_unused_sub;
+  ros::Subscriber m_goto_first_sub;
+  ros::Subscriber m_goto_next_unused_sub;
 
   ros::Subscriber m_view_control_points_sub;
   ros::Subscriber m_view_cloud_sub;

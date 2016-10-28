@@ -155,6 +155,18 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_nh.param<std::string>(PARAM_NAME_CONTROL_POINT_MAX_WEIGHT_TOPIC,param_string,PARAM_DEFAULT_CONTROL_POINT_MAX_WEIGHT_TOPIC);
   m_control_point_weight_max_weight_pub = nh.advertise<std_msgs::UInt32>(param_string,1,true);
 
+  m_nh.param<std::string>(PARAM_NAME_GOTO_FIRST_UNUSED_TOPIC,param_string,PARAM_DEFAULT_GOTO_FIRST_UNUSED_TOPIC);
+  m_goto_first_unused_sub = nh.subscribe(param_string,1,&RVizCloudAnnotation::onGotoFirstUnused,this);
+
+  m_nh.param<std::string>(PARAM_NAME_GOTO_LAST_UNUSED_TOPIC,param_string,PARAM_DEFAULT_GOTO_LAST_UNUSED_TOPIC);
+  m_goto_last_unused_sub = nh.subscribe(param_string,1,&RVizCloudAnnotation::onGotoLastUnused,this);
+
+  m_nh.param<std::string>(PARAM_NAME_GOTO_FIRST_TOPIC,param_string,PARAM_DEFAULT_GOTO_FIRST_TOPIC);
+  m_goto_first_sub = nh.subscribe(param_string,1,&RVizCloudAnnotation::onGotoFirst,this);
+
+  m_nh.param<std::string>(PARAM_NAME_GOTO_NEXT_UNUSED_TOPIC,param_string,PARAM_DEFAULT_GOTO_NEXT_UNUSED_TOPIC);
+  m_goto_next_unused_sub = nh.subscribe(param_string,1,&RVizCloudAnnotation::onGotoNextUnused,this);
+
   m_current_label = 1;
   m_edit_mode = EDIT_MODE_NONE;
 
@@ -706,6 +718,36 @@ void RVizCloudAnnotation::onPointSizeChange(const std_msgs::Int32 & msg)
   SendControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),true);
 }
 
+void RVizCloudAnnotation::onGotoFirstUnused(const std_msgs::Empty &)
+{
+  ROS_INFO("rviz_cloud_annotation: go to first unused label.");
+  uint64 i;
+  for (i = 1; (m_annotation->GetLabelPointCount(i) != 0) && (i < UINT64_MAX); i++) {}
+  SetCurrentLabel(i);
+}
+
+void RVizCloudAnnotation::onGotoLastUnused(const std_msgs::Empty &)
+{
+  ROS_INFO("rviz_cloud_annotation: go to last unused label.");
+  uint64 i = m_annotation->GetMaxLabel() + 1;
+  for (; (m_annotation->GetLabelPointCount(i) == 0) && (i > 0); i--) {}
+  SetCurrentLabel(i + 1);
+}
+
+void RVizCloudAnnotation::onGotoFirst(const std_msgs::Empty &)
+{
+  ROS_INFO("rviz_cloud_annotation: go to first label.");
+  SetCurrentLabel(1);
+}
+
+void RVizCloudAnnotation::onGotoNextUnused(const std_msgs::Empty &)
+{
+  ROS_INFO("rviz_cloud_annotation: go to next unused label.");
+  uint64 i = m_current_label + 1;
+  for (; (m_annotation->GetLabelPointCount(i) != 0) && (i < UINT64_MAX); i++) {}
+  SetCurrentLabel(i);
+}
+
 void RVizCloudAnnotation::ClearControlPointsMarker(const Uint64Vector & indices,const bool apply)
 {
   const uint64 changed_size = indices.size();
@@ -810,5 +852,15 @@ void RVizCloudAnnotation::onClickOnCloud(const InteractiveMarkerFeedbackConstPtr
       SetEditMode(EDIT_MODE_CONTROL_POINT);
     }
   }
+}
+
+void RVizCloudAnnotation::SendCloudMarker(const bool apply)
+{
+  m_interactive_marker_server->insert(
+    CloudToMarker(*m_cloud,(m_edit_mode != EDIT_MODE_NONE)),
+    boost::bind(&RVizCloudAnnotation::onClickOnCloud,this,_1));
+
+  if (apply)
+    m_interactive_marker_server->applyChanges();
 }
 

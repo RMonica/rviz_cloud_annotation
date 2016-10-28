@@ -119,6 +119,18 @@
 #define PARAM_NAME_CONTROL_POINT_MAX_WEIGHT_TOPIC "rviz_cloud_annotation/point_max_weight_topic"
 #define PARAM_DEFAULT_CONTROL_POINT_MAX_WEIGHT_TOPIC "/rviz_cloud_annotation/point_max_weight"
 
+#define PARAM_NAME_GOTO_FIRST_UNUSED_TOPIC    "rviz_cloud_annotation/goto_first_unused_topic"
+#define PARAM_DEFAULT_GOTO_FIRST_UNUSED_TOPIC "/rviz_cloud_annotation/goto_first_unused"
+
+#define PARAM_NAME_GOTO_LAST_UNUSED_TOPIC     "rviz_cloud_annotation/goto_last_unused_topic"
+#define PARAM_DEFAULT_GOTO_LAST_UNUSED_TOPIC  "/rviz_cloud_annotation/goto_last_unused"
+
+#define PARAM_NAME_GOTO_NEXT_UNUSED_TOPIC     "rviz_cloud_annotation/goto_next_unused_topic"
+#define PARAM_DEFAULT_GOTO_NEXT_UNUSED_TOPIC  "/rviz_cloud_annotation/goto_next_unused"
+
+#define PARAM_NAME_GOTO_FIRST_TOPIC           "rviz_cloud_annotation/goto_first_topic"
+#define PARAM_DEFAULT_GOTO_FIRST_TOPIC        "/rviz_cloud_annotation/goto_first"
+
 // parameters for smart labeling
   // neighborhood graph distance
 #define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance" // DEPRECATED

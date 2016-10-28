@@ -126,6 +126,18 @@ namespace rviz_cloud_annotation
 
       m_nh.param<std::string>(PARAM_NAME_CONTROL_POINT_MAX_WEIGHT_TOPIC,param_string,PARAM_DEFAULT_CONTROL_POINT_MAX_WEIGHT_TOPIC);
       m_control_point_max_weight_sub = m_nh.subscribe(param_string,1,&QRVizCloudAnnotation::onSetControlPointMaxWeight,this);
+
+      m_nh.param<std::string>(PARAM_NAME_GOTO_FIRST_UNUSED_TOPIC,param_string,PARAM_DEFAULT_GOTO_FIRST_UNUSED_TOPIC);
+      m_goto_first_unused_pub = m_nh.advertise<std_msgs::Empty>(param_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_GOTO_FIRST_TOPIC,param_string,PARAM_DEFAULT_GOTO_FIRST_TOPIC);
+      m_goto_first_pub = m_nh.advertise<std_msgs::Empty>(param_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_GOTO_LAST_UNUSED_TOPIC,param_string,PARAM_DEFAULT_GOTO_LAST_UNUSED_TOPIC);
+      m_goto_last_unused_pub = m_nh.advertise<std_msgs::Empty>(param_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_GOTO_NEXT_UNUSED_TOPIC,param_string,PARAM_DEFAULT_GOTO_NEXT_UNUSED_TOPIC);
+      m_goto_next_unused_pub = m_nh.advertise<std_msgs::Empty>(param_string,1);
     }
 
     QBoxLayout * main_layout = new QBoxLayout(QBoxLayout::TopToBottom,this);
@@ -211,28 +223,58 @@ namespace rviz_cloud_annotation
 
       label_menu->addSeparator();
 
-      m_weight_menu = label_menu->addMenu("Weight");
-      m_weight_menu->setEnabled(false);
+      // go to submenu
+      {
+        QMenu * goto_menu = label_menu->addMenu("Go to");
 
-      m_prev_weight_action = new QAction("Decrease",menu_bar);
-      m_weight_menu->addAction(m_prev_weight_action);
-      m_prev_weight_action->setShortcut(QKeySequence("W"));
-      connect(m_prev_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightDec);
+        QAction * goto_first_action = new QAction("First",menu_bar);
+        goto_menu->addAction(goto_first_action);
+        goto_first_action->setShortcut(QKeySequence("Home"));
+        connect(goto_first_action,&QAction::triggered,this,&QRVizCloudAnnotation::onGotoFirst);
 
-      m_next_weight_action = new QAction("Increase",menu_bar);
-      m_weight_menu->addAction(m_next_weight_action);
-      m_next_weight_action->setShortcut(QKeySequence("Shift+W"));
-      connect(m_next_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightInc);
+        QAction * goto_first_unused_action = new QAction("First empty",menu_bar);
+        goto_menu->addAction(goto_first_unused_action);
+        goto_first_unused_action->setShortcut(QKeySequence("L"));
+        connect(goto_first_unused_action,&QAction::triggered,this,&QRVizCloudAnnotation::onGotoFirstUnused);
 
-      m_min_weight_action = new QAction("Minimum",menu_bar);
-      m_weight_menu->addAction(m_min_weight_action);
-      m_min_weight_action->setShortcut(QKeySequence("Alt+W"));
-      connect(m_min_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightMin);
+        QAction * goto_next_unused_action = new QAction("Next empty",menu_bar);
+        goto_menu->addAction(goto_next_unused_action);
+        goto_next_unused_action->setShortcut(QKeySequence("Alt+L"));
+        connect(goto_next_unused_action,&QAction::triggered,this,&QRVizCloudAnnotation::onGotoNextUnused);
 
-      m_max_weight_action = new QAction("Maximum",menu_bar);
-      m_weight_menu->addAction(m_max_weight_action);
-      m_max_weight_action->setShortcut(QKeySequence("Alt+Shift+W"));
-      connect(m_max_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightMax);
+        QAction * goto_last_unused_action = new QAction("Last empty",menu_bar);
+        goto_menu->addAction(goto_last_unused_action);
+        goto_last_unused_action->setShortcut(QKeySequence("End"));
+        connect(goto_last_unused_action,&QAction::triggered,this,&QRVizCloudAnnotation::onGotoLastUnused);
+      }
+
+      label_menu->addSeparator();
+
+      // weight submenu
+      {
+        m_weight_menu = label_menu->addMenu("Weight");
+        m_weight_menu->setEnabled(false);
+
+        m_prev_weight_action = new QAction("Decrease",menu_bar);
+        m_weight_menu->addAction(m_prev_weight_action);
+        m_prev_weight_action->setShortcut(QKeySequence("W"));
+        connect(m_prev_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightDec);
+
+        m_next_weight_action = new QAction("Increase",menu_bar);
+        m_weight_menu->addAction(m_next_weight_action);
+        m_next_weight_action->setShortcut(QKeySequence("Shift+W"));
+        connect(m_next_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightInc);
+
+        m_min_weight_action = new QAction("Minimum",menu_bar);
+        m_weight_menu->addAction(m_min_weight_action);
+        m_min_weight_action->setShortcut(QKeySequence("Alt+W"));
+        connect(m_min_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightMin);
+
+        m_max_weight_action = new QAction("Maximum",menu_bar);
+        m_weight_menu->addAction(m_max_weight_action);
+        m_max_weight_action->setShortcut(QKeySequence("Alt+Shift+W"));
+        connect(m_max_weight_action,&QAction::triggered,this,&QRVizCloudAnnotation::onControlPointWeightMax);
+      }
     }
 
     {
@@ -699,6 +741,26 @@ namespace rviz_cloud_annotation
   {
     if (m_current_page > 0)
       SetCurrentLabel(GetFirstLabelForPage(m_current_page - 1),m_current_page - 1);
+  }
+
+  void QRVizCloudAnnotation::onGotoFirstUnused()
+  {
+    m_goto_first_unused_pub.publish(std_msgs::Empty());
+  }
+
+  void QRVizCloudAnnotation::onGotoLastUnused()
+  {
+    m_goto_last_unused_pub.publish(std_msgs::Empty());
+  }
+
+  void QRVizCloudAnnotation::onGotoFirst()
+  {
+    m_goto_first_pub.publish(std_msgs::Empty());
+  }
+
+  void QRVizCloudAnnotation::onGotoNextUnused()
+  {
+    m_goto_next_unused_pub.publish(std_msgs::Empty());
   }
 
   void QRVizCloudAnnotation::onBiggerPoints()

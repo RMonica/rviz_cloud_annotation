@@ -68,6 +68,11 @@ namespace rviz_cloud_annotation
     void onViewControlPointsToggled(const bool checked);
     void onViewLabelsToggled(const bool checked);
 
+    void onGotoFirstUnused();
+    void onGotoLastUnused();
+    void onGotoFirst();
+    void onGotoNextUnused();
+
     void onSmallerPoints();
     void onBiggerPoints();
     void onResetPointsSize();
@@ -119,6 +124,11 @@ namespace rviz_cloud_annotation
     ros::Publisher m_save_pub;
     ros::Publisher m_restore_pub;
     ros::Publisher m_clear_pub;
+
+    ros::Publisher m_goto_first_unused_pub;
+    ros::Publisher m_goto_last_unused_pub;
+    ros::Publisher m_goto_first_pub;
+    ros::Publisher m_goto_next_unused_pub;
 
     ros::Subscriber m_set_edit_mode_sub;
     ros::Subscriber m_set_current_label_sub;
