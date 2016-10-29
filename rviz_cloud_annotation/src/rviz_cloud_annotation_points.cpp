@@ -393,7 +393,7 @@ RVizCloudAnnotationPoints::uint64 RVizCloudAnnotationPoints::InternalSetControlP
 
       while (!m_control_points.empty() && m_control_points.back().Invalid())
       {
-        EraseFromVector(m_erased_control_points,m_control_points.size());
+        EraseFromVector(m_erased_control_points,uint64(m_control_points.size()));
         m_control_points.pop_back();
       }
 
