@@ -144,6 +144,7 @@ namespace rviz_cloud_annotation
 
     {
       QMenuBar * menu_bar = new QMenuBar(this);
+      menu_bar->setNativeMenuBar(false);
       main_layout->addWidget(menu_bar);
 
       QMenu * file_menu = menu_bar->addMenu("File");
