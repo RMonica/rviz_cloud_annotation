@@ -14,6 +14,7 @@
 RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
 {
   std::string param_string;
+  std::string param_string2;
   double param_double;
   int param_int;
 
@@ -21,8 +22,17 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_interactive_marker_server = InteractiveMarkerServerPtr(new InteractiveMarkerServer(param_string));
 
   m_nh.param<std::string>(PARAM_NAME_CLOUD_FILENAME,param_string,PARAM_DEFAULT_CLOUD_FILENAME);
+  m_nh.param<std::string>(PARAM_NAME_NORMAL_SOURCE,param_string2,PARAM_DEFAULT_NORMAL_SOURCE);
   m_cloud = PointXYZRGBNormalCloud::Ptr(new PointXYZRGBNormalCloud);
-  LoadCloud(param_string,*m_cloud);
+  try
+  {
+    LoadCloud(param_string,param_string2,*m_cloud);
+  }
+  catch (const std::string & msg)
+  {
+    ROS_FATAL("rviz_cloud_annotation: %s",msg.c_str());
+    std::exit(1);
+  }
   m_kdtree = KdTree::Ptr(new KdTree);
   m_kdtree->setInputCloud(m_cloud);
 
@@ -87,6 +97,19 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_control_label_size = param_double;
 
   m_nh.param<bool>(PARAM_NAME_SHOW_POINTS_BACK_LABELS,m_show_points_back_labels,PARAM_DEFAULT_SHOW_POINTS_BACK_LABELS);
+
+  m_nh.param<std::string>(PARAM_NAME_CONTROL_POINT_VISUAL,param_string,PARAM_DEFAULT_CONTROL_POINT_VISUAL);
+  if (param_string == PARAM_VALUE_CONTROL_POINT_VISUAL_LINE)
+    m_control_points_visual = CONTROL_POINT_VISUAL_LINE;
+  else if (param_string == PARAM_VALUE_CONTROL_POINT_VISUAL_SPHERE)
+    m_control_points_visual = CONTROL_POINT_VISUAL_SPHERE;
+  else if (param_string == PARAM_VALUE_CONTROL_POINT_VISUAL_THREE_SPHERES)
+    m_control_points_visual = CONTROL_POINT_VISUAL_THREE_SPHERES;
+  else
+  {
+    ROS_ERROR("rviz_cloud_annotation: invalid value for parameter %s: %s",PARAM_NAME_CONTROL_POINT_VISUAL,param_string.c_str());
+    m_control_points_visual = CONTROL_POINT_VISUAL_SPHERE;
+  }
 
   m_nh.param<double>(PARAM_NAME_CP_WEIGHT_SCALE_FRACTION,param_double,PARAM_DEFAULT_CP_WEIGHT_SCALE_FRACTION);
   m_cp_weight_scale_fraction = std::min<float>(1.0,std::max(0.0,param_double));
@@ -198,17 +221,26 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarke
   marker.pose.position.y = 0.0;
   marker.pose.position.z = 0.0;
 
+  const bool use_spheres = m_control_points_visual == CONTROL_POINT_VISUAL_SPHERE ||
+                           m_control_points_visual == CONTROL_POINT_VISUAL_THREE_SPHERES;
+
+  const float control_label_size = use_spheres ? m_control_label_size / 2.0 : m_control_label_size;
+  const uint64 cp_marker_count = m_control_points_visual == CONTROL_POINT_VISUAL_SPHERE ? 1 :
+                                 m_control_points_visual == CONTROL_POINT_VISUAL_THREE_SPHERES ? 3 :
+                                 m_control_points_visual == CONTROL_POINT_VISUAL_LINE ? 2 :
+                                 2;
+
   Marker cloud_marker;
-  cloud_marker.type = Marker::LINE_LIST;
-  cloud_marker.scale.x = m_control_label_size / 2.0;
-  cloud_marker.scale.y = 0.0;
-  cloud_marker.scale.z = 0.0;
+  cloud_marker.type = use_spheres ? int(Marker::SPHERE_LIST) : int(Marker::LINE_LIST);
+  cloud_marker.scale.x = control_label_size;
+  cloud_marker.scale.y = use_spheres ? control_label_size : 0.0;
+  cloud_marker.scale.z = use_spheres ? control_label_size : 0.0;
   cloud_marker.color.r = float(color.r) / 255.0;
   cloud_marker.color.g = float(color.g) / 255.0;
   cloud_marker.color.b = float(color.b) / 255.0;
   cloud_marker.color.a = 1.0;
 
-  cloud_marker.points.resize(control_size * 2);
+  cloud_marker.points.resize(control_size * cp_marker_count);
   for(uint64 i = 0; i < control_size; i++)
   {
     const PointXYZRGBNormal & pt = cloud[control_points[i].point_id];
@@ -216,13 +248,23 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarke
     const float weight_rel = float(control_points[i].weight_step_id) / float(m_control_point_max_weight);
     const float weight_scale = (1.0 - m_cp_weight_scale_fraction) + weight_rel * m_cp_weight_scale_fraction;
 
-    cloud_marker.points[i * 2].x = pt.x;
-    cloud_marker.points[i * 2].y = pt.y;
-    cloud_marker.points[i * 2].z = pt.z;
+    cloud_marker.points[i * cp_marker_count].x = pt.x;
+    cloud_marker.points[i * cp_marker_count].y = pt.y;
+    cloud_marker.points[i * cp_marker_count].z = pt.z;
 
-    cloud_marker.points[i * 2 + 1].x = pt.x + pt.normal_x * m_control_label_size * weight_scale;
-    cloud_marker.points[i * 2 + 1].y = pt.y + pt.normal_y * m_control_label_size * weight_scale;
-    cloud_marker.points[i * 2 + 1].z = pt.z + pt.normal_z * m_control_label_size * weight_scale;
+    if (cp_marker_count > 1)
+    {
+      cloud_marker.points[i * cp_marker_count + 1].x = pt.x + pt.normal_x * control_label_size * weight_scale;
+      cloud_marker.points[i * cp_marker_count + 1].y = pt.y + pt.normal_y * control_label_size * weight_scale;
+      cloud_marker.points[i * cp_marker_count + 1].z = pt.z + pt.normal_z * control_label_size * weight_scale;
+    }
+
+    if (cp_marker_count > 2)
+    {
+      cloud_marker.points[i * cp_marker_count + 2].x = pt.x + pt.normal_x * control_label_size * weight_scale / 2.0;
+      cloud_marker.points[i * cp_marker_count + 2].y = pt.y + pt.normal_y * control_label_size * weight_scale / 2.0;
+      cloud_marker.points[i * cp_marker_count + 2].z = pt.z + pt.normal_z * control_label_size * weight_scale / 2.0;
+    }
   }
 
   visualization_msgs::InteractiveMarkerControl points_control;
@@ -388,6 +430,7 @@ void RVizCloudAnnotation::Restore(const std::string & filename)
     const uint old_size = m_annotation->GetCloudSize();
     ROS_ERROR("rviz_cloud_annotation: file was created for a cloud of size %u, but it is %u. Load operation aborted.",
               new_size,old_size);
+    return;
   }
 
   ClearControlPointsMarker(RangeUint64(1,m_annotation->GetNextLabel()),false);
@@ -399,6 +442,45 @@ void RVizCloudAnnotation::Restore(const std::string & filename)
   SendUndoRedoState();
 
   ROS_INFO("rviz_cloud_annotation: file loaded.");
+}
+
+void RVizCloudAnnotation::LoadCloud(const std::string & filename,const std::string & normal_source,PointXYZRGBNormalCloud & cloud)
+{
+  cloud.clear();
+
+  pcl::PCLPointCloud2 cloud2;
+
+  if (pcl::io::loadPCDFile(filename,cloud2))
+    throw std::string(std::string("could not load cloud: ") + filename);
+
+  PointXYZRGBCloud xyz_rgb_cloud;
+  PointNormalCloud normal_cloud;
+
+  pcl::fromPCLPointCloud2(cloud2,xyz_rgb_cloud);
+
+  if (normal_source == PARAM_VALUE_NORMAL_SOURCE_CLOUD)
+    pcl::fromPCLPointCloud2(cloud2,normal_cloud);
+  else if (normal_source.substr(0,std::string(PARAM_VALUE_NORMAL_SOURCE_OTHER_CLOUD).size()) == PARAM_VALUE_NORMAL_SOURCE_OTHER_CLOUD)
+  {
+    const std::string filename_n = normal_source.substr(std::string(PARAM_VALUE_NORMAL_SOURCE_OTHER_CLOUD).size());
+    if (pcl::io::loadPCDFile(filename_n,normal_cloud))
+      throw std::string(std::string("could not load normal source cloud: ") + filename_n);
+  }
+  else
+    throw std::string(std::string("invalid normal source: ") + normal_source);
+
+  if (normal_cloud.size() != xyz_rgb_cloud.size())
+    throw std::string("cloud and normal cloud have different sizes");
+
+  pcl::copyPointCloud(xyz_rgb_cloud,cloud);
+
+  for (uint64 i = 0; i < normal_cloud.size(); i++)
+  {
+    cloud[i].normal_x = normal_cloud[i].normal_x;
+    cloud[i].normal_y = normal_cloud[i].normal_y;
+    cloud[i].normal_z = normal_cloud[i].normal_z;
+    cloud[i].curvature = normal_cloud[i].curvature;
+  }
 }
 
 void RVizCloudAnnotation::onSave(const std_msgs::String & filename_msg)

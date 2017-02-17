@@ -11,6 +11,11 @@
 #define PARAM_NAME_CLOUD_FILENAME             "cloud_filename"
 #define PARAM_DEFAULT_CLOUD_FILENAME          "cloud.pcd"
 
+#define PARAM_NAME_NORMAL_SOURCE              "normal_source"
+#define PARAM_VALUE_NORMAL_SOURCE_CLOUD       "cloud"        // from PARAM_NAME_CLOUD_FILENAME itself
+#define PARAM_VALUE_NORMAL_SOURCE_OTHER_CLOUD "other_cloud:" // example: "other_cloud:normal_cloud.pcd"
+#define PARAM_DEFAULT_NORMAL_SOURCE           PARAM_VALUE_NORMAL_SOURCE_CLOUD
+
 // will attempt to load this at startup
 #define PARAM_NAME_ANN_FILENAME_IN            "annotation_read_filename"
 #define PARAM_DEFAULT_ANN_FILENAME_IN         "annotation.annotation"
@@ -43,6 +48,12 @@
 // shows labels in the back of the points as well
 #define PARAM_NAME_SHOW_POINTS_BACK_LABELS    "show_labels_back"
 #define PARAM_DEFAULT_SHOW_POINTS_BACK_LABELS (true)
+
+#define PARAM_NAME_CONTROL_POINT_VISUAL       "control_point_visual"
+#define PARAM_VALUE_CONTROL_POINT_VISUAL_LINE "line"
+#define PARAM_VALUE_CONTROL_POINT_VISUAL_SPHERE "sphere"
+#define PARAM_VALUE_CONTROL_POINT_VISUAL_THREE_SPHERES "three_spheres"
+#define PARAM_DEFAULT_CONTROL_POINT_VISUAL    PARAM_VALUE_CONTROL_POINT_VISUAL_SPHERE
 
 // [0..1] 0: size not affected by weight - 1: whole size affected
 #define PARAM_NAME_CP_WEIGHT_SCALE_FRACTION   "control_point_weight_scale_fraction"

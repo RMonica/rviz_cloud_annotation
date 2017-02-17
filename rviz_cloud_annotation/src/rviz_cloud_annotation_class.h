@@ -52,6 +52,10 @@ class RVizCloudAnnotation
   typedef visualization_msgs::InteractiveMarkerFeedbackConstPtr InteractiveMarkerFeedbackConstPtr;
   typedef pcl::PointXYZRGBNormal PointXYZRGBNormal;
   typedef pcl::PointCloud<PointXYZRGBNormal> PointXYZRGBNormalCloud;
+  typedef pcl::Normal PointNormal;
+  typedef pcl::PointCloud<PointNormal> PointNormalCloud;
+  typedef pcl::PointXYZRGB PointXYZRGB;
+  typedef pcl::PointCloud<PointXYZRGB> PointXYZRGBCloud;
   typedef pcl::PointXYZRGBL PointXYZRGBL;
   typedef pcl::PointCloud<PointXYZRGBL> PointXYZRGBLCloud;
   typedef pcl::KdTreeFLANN<PointXYZRGBNormal> KdTree;
@@ -68,22 +72,16 @@ class RVizCloudAnnotation
   typedef std::vector<Uint64Vector> Uint64VectorVector;
   typedef std::vector<float> FloatVector;
 
+  enum ControlPointVisual
+  {
+    CONTROL_POINT_VISUAL_SPHERE,
+    CONTROL_POINT_VISUAL_THREE_SPHERES,
+    CONTROL_POINT_VISUAL_LINE,
+  };
+
   RVizCloudAnnotation(ros::NodeHandle & nh);
 
-  void LoadCloud(const std::string & filename,PointXYZRGBNormalCloud & cloud)
-  {
-    cloud.clear();
-
-    pcl::PCLPointCloud2 cloud2;
-
-    if (pcl::io::loadPCDFile(filename,cloud2))
-    {
-      ROS_ERROR("rviz_cloud_annotation: could not load cloud: %s",filename.c_str());
-      return;
-    }
-
-    pcl::fromPCLPointCloud2(cloud2,cloud);
-  }
+  void LoadCloud(const std::string & filename,const std::string & normal_source,PointXYZRGBNormalCloud & cloud);
 
   void onSave(const std_msgs::String & filename_msg);
 
@@ -279,6 +277,7 @@ class RVizCloudAnnotation
 
   bool m_show_points_back_labels;
   float m_cp_weight_scale_fraction;
+  ControlPointVisual m_control_points_visual;
 
   uint64 m_current_label;
   uint64 m_edit_mode;
