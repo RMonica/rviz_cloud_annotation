@@ -65,6 +65,9 @@
 #define PARAM_NAME_CP_WEIGHT_SCALE_FRACTION   "control_point_weight_scale_fraction"
 #define PARAM_DEFAULT_CP_WEIGHT_SCALE_FRACTION (0.5)
 
+#define PARAM_NAME_ZERO_WEIGHT_CP_SHOW        "show_zero_weight_control_points"
+#define PARAM_DEFAULT_ZERO_WEIGHT_CP_SHOW     (true)
+
 // from interface to backend
 #define PARAM_NAME_SET_EDIT_MODE_TOPIC        "rviz_cloud_annotation/set_edit_mode_topic"
 #define PARAM_DEFAULT_SET_EDIT_MODE_TOPIC     "/rviz_cloud_annotation/set_edit_mode"

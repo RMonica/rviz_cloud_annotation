@@ -285,6 +285,7 @@ class RVizCloudAnnotation
   bool m_show_points_back_labels;
   float m_cp_weight_scale_fraction;
   ControlPointVisual m_control_points_visual;
+  bool m_show_zero_weight_control_points;
 
   uint64 m_current_label;
   uint64 m_edit_mode;

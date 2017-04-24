@@ -118,6 +118,8 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_nh.param<double>(PARAM_NAME_CP_WEIGHT_SCALE_FRACTION,param_double,PARAM_DEFAULT_CP_WEIGHT_SCALE_FRACTION);
   m_cp_weight_scale_fraction = std::min<float>(1.0,std::max(0.0,param_double));
 
+  m_nh.param<bool>(PARAM_NAME_ZERO_WEIGHT_CP_SHOW,m_show_zero_weight_control_points,PARAM_DEFAULT_ZERO_WEIGHT_CP_SHOW);
+
   m_nh.param<std::string>(PARAM_NAME_SAVE_TOPIC,param_string,PARAM_DEFAULT_SAVE_TOPIC);
   m_save_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSave,this);
 
@@ -255,31 +257,40 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarke
   cloud_marker.color.a = 1.0;
 
   cloud_marker.points.resize(control_size * cp_marker_count);
+  uint64 out_marker_count = 0;
   for(uint64 i = 0; i < control_size; i++)
   {
     const PointXYZRGBNormal & pt = cloud[control_points[i].point_id];
 
-    const float weight_rel = float(control_points[i].weight_step_id) / float(m_control_point_max_weight);
+    const uint32 weight_step_id = control_points[i].weight_step_id;
+    if (weight_step_id == 0 && !m_show_zero_weight_control_points)
+      continue;
+
+    const float weight_rel = float(weight_step_id) / float(m_control_point_max_weight);
     const float weight_scale = (1.0 - m_cp_weight_scale_fraction) + weight_rel * m_cp_weight_scale_fraction;
 
-    cloud_marker.points[i * cp_marker_count].x = pt.x;
-    cloud_marker.points[i * cp_marker_count].y = pt.y;
-    cloud_marker.points[i * cp_marker_count].z = pt.z;
+    cloud_marker.points[out_marker_count].x = pt.x;
+    cloud_marker.points[out_marker_count].y = pt.y;
+    cloud_marker.points[out_marker_count].z = pt.z;
+    out_marker_count++;
 
     if (cp_marker_count > 1)
     {
-      cloud_marker.points[i * cp_marker_count + 1].x = pt.x + pt.normal_x * control_label_size * weight_scale;
-      cloud_marker.points[i * cp_marker_count + 1].y = pt.y + pt.normal_y * control_label_size * weight_scale;
-      cloud_marker.points[i * cp_marker_count + 1].z = pt.z + pt.normal_z * control_label_size * weight_scale;
+      cloud_marker.points[out_marker_count].x = pt.x + pt.normal_x * control_label_size * weight_scale;
+      cloud_marker.points[out_marker_count].y = pt.y + pt.normal_y * control_label_size * weight_scale;
+      cloud_marker.points[out_marker_count].z = pt.z + pt.normal_z * control_label_size * weight_scale;
+      out_marker_count++;
     }
 
     if (cp_marker_count > 2)
     {
-      cloud_marker.points[i * cp_marker_count + 2].x = pt.x + pt.normal_x * control_label_size * weight_scale / 2.0;
-      cloud_marker.points[i * cp_marker_count + 2].y = pt.y + pt.normal_y * control_label_size * weight_scale / 2.0;
-      cloud_marker.points[i * cp_marker_count + 2].z = pt.z + pt.normal_z * control_label_size * weight_scale / 2.0;
+      cloud_marker.points[out_marker_count].x = pt.x + pt.normal_x * control_label_size * weight_scale / 2.0;
+      cloud_marker.points[out_marker_count].y = pt.y + pt.normal_y * control_label_size * weight_scale / 2.0;
+      cloud_marker.points[out_marker_count].z = pt.z + pt.normal_z * control_label_size * weight_scale / 2.0;
+      out_marker_count++;
     }
   }
+  cloud_marker.points.resize(out_marker_count);
 
   visualization_msgs::InteractiveMarkerControl points_control;
   points_control.always_visible = true;
