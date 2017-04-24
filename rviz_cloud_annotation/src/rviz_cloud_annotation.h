@@ -32,7 +32,10 @@
 #define PARAM_DEFAULT_LABEL_NAMES_FILENAME    "names.txt"
 
 #define PARAM_NAME_AUTOSAVE_TIME              "autosave_time"
-#define PARAM_DEFAULT_AUTOSAVE_TIME           (0.0)   // seconds, 0 to disable
+#define PARAM_DEFAULT_AUTOSAVE_TIME           (0.0)   // seconds, < 1.0 to disable
+
+#define PARAM_NAME_AUTOSAVE_TIMESTAMP         "autosave_append_timestamp"
+#define PARAM_DEFAULT_AUTOSAVE_TIMESTAMP      (false)
 
 #define PARAM_NAME_FRAME_ID                   "frame_id"
 #define PARAM_DEFAULT_FRAME_ID                "base_link"

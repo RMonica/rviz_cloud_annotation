@@ -5,7 +5,11 @@
 #include "rviz_cloud_annotation_class.h"
 #include "point_neighborhood_search.h"
 
+// STL
 #include <cstring>
+
+// Boost
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #define CLOUD_MARKER_NAME            "cloud"
 #define CONTROL_POINT_MARKER_PREFIX  "control_points_"
@@ -191,8 +195,12 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_goto_next_unused_sub = nh.subscribe(param_string,1,&RVizCloudAnnotation::onGotoNextUnused,this);
 
   m_nh.param<double>(PARAM_NAME_AUTOSAVE_TIME,param_double,PARAM_DEFAULT_AUTOSAVE_TIME);
-  if (param_double > 0.0)
-    m_autosave_timer = m_nh.createTimer(ros::Duration(param_double),&RVizCloudAnnotation::onAutosave,this,false);
+  if (param_double >= 1.0)
+  {
+    m_autosave_timer = m_nh.createTimer(ros::Duration(param_double),&RVizCloudAnnotation::onAutosave,this,false,false);
+    ROS_INFO("rviz_cloud_annotation: autosave every %f seconds.",float(param_double));
+  }
+  m_nh.param<bool>(PARAM_NAME_AUTOSAVE_TIMESTAMP,m_autosave_append_timestamp,PARAM_DEFAULT_AUTOSAVE_TIMESTAMP);
 
   m_current_label = 1;
   m_edit_mode = EDIT_MODE_NONE;
@@ -206,6 +214,8 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   SendCloudMarker(true);
   SendControlPointMaxWeight();
   Restore(m_annotation_filename_in);
+
+  m_autosave_timer.start();
 }
 
 RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::ControlPointsToMarker(const PointXYZRGBNormalCloud & cloud,
@@ -487,9 +497,15 @@ void RVizCloudAnnotation::LoadCloud(const std::string & filename,const std::stri
   }
 }
 
-void RVizCloudAnnotation::Save()
+void RVizCloudAnnotation::Save(const bool is_autosave)
 {
+  if (is_autosave)
+    ROS_INFO("rviz_cloud_annotation: auto-saving.");
+
   std::string filename = m_annotation_filename_out;
+  if (is_autosave && m_autosave_append_timestamp)
+    filename = AppendTimestampBeforeExtension(filename);
+
   std::ofstream ofile(filename.c_str());
   if (!ofile)
   {
@@ -509,19 +525,27 @@ void RVizCloudAnnotation::Save()
   }
   ROS_INFO("rviz_cloud_annotation: done.");
 
-  ROS_INFO("rviz_cloud_annotation: saving cloud: %s",m_ann_cloud_filename_out.c_str());
+  std::string cloud_filename = m_ann_cloud_filename_out;
+  if (is_autosave && m_autosave_append_timestamp)
+    cloud_filename = AppendTimestampBeforeExtension(cloud_filename);
+
+  ROS_INFO("rviz_cloud_annotation: saving cloud: %s",cloud_filename.c_str());
   {
     PointXYZRGBLCloud cloud_out;
     pcl::copyPointCloud(*m_cloud,cloud_out);
     m_annotation->LabelCloudWithColor(cloud_out);
-    if (pcl::io::savePCDFileBinary(m_ann_cloud_filename_out,cloud_out))
+    if (pcl::io::savePCDFileBinary(cloud_filename,cloud_out))
       ROS_ERROR("rviz_cloud_annotation: could not save labeled cloud.");
   }
   ROS_INFO("rviz_cloud_annotation: done.");
 
-  ROS_INFO("rviz_cloud_annotation: saving names: %s",m_label_names_filename_out.c_str());
+  std::string names_filename = m_label_names_filename_out;
+  if (is_autosave && m_autosave_append_timestamp)
+    names_filename = AppendTimestampBeforeExtension(names_filename);
+
+  ROS_INFO("rviz_cloud_annotation: saving names: %s",names_filename.c_str());
   {
-    std::ofstream ofile(m_label_names_filename_out.c_str());
+    std::ofstream ofile(names_filename.c_str());
     for (uint64 i = 1; i < m_annotation->GetNextLabel(); i++)
       ofile << i << ": " << m_annotation->GetNameForLabel(i) << "\n";
     if (!ofile)
@@ -950,3 +974,18 @@ void RVizCloudAnnotation::SendCloudMarker(const bool apply)
     m_interactive_marker_server->applyChanges();
 }
 
+std::string RVizCloudAnnotation::AppendTimestampBeforeExtension(const std::string & filename)
+{
+  std::string datetime = boost::posix_time::to_simple_string(boost::posix_time::second_clock::local_time());
+  std::replace(datetime.begin(),datetime.end(),' ','_');
+  std::replace(datetime.begin(),datetime.end(),':','-');
+
+  const std::size_t last_dot = filename.rfind('.');
+  const std::size_t last_slash = filename.rfind("/");
+  if (last_dot == std::string::npos)
+    return filename + datetime; // no dot
+  if (last_slash != std::string::npos && last_slash > last_dot)
+    return filename + datetime; // the dot is in a directory
+
+  return filename.substr(0,last_dot) + datetime + filename.substr(last_dot);
+}
