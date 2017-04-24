@@ -190,6 +190,10 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_nh.param<std::string>(PARAM_NAME_GOTO_NEXT_UNUSED_TOPIC,param_string,PARAM_DEFAULT_GOTO_NEXT_UNUSED_TOPIC);
   m_goto_next_unused_sub = nh.subscribe(param_string,1,&RVizCloudAnnotation::onGotoNextUnused,this);
 
+  m_nh.param<double>(PARAM_NAME_AUTOSAVE_TIME,param_double,PARAM_DEFAULT_AUTOSAVE_TIME);
+  if (param_double > 0.0)
+    m_autosave_timer = m_nh.createTimer(ros::Duration(param_double),&RVizCloudAnnotation::onAutosave,this,false);
+
   m_current_label = 1;
   m_edit_mode = EDIT_MODE_NONE;
 
@@ -483,9 +487,9 @@ void RVizCloudAnnotation::LoadCloud(const std::string & filename,const std::stri
   }
 }
 
-void RVizCloudAnnotation::onSave(const std_msgs::String & filename_msg)
+void RVizCloudAnnotation::Save()
 {
-  std::string filename = filename_msg.data.empty() ? m_annotation_filename_out : filename_msg.data;
+  std::string filename = m_annotation_filename_out;
   std::ofstream ofile(filename.c_str());
   if (!ofile)
   {

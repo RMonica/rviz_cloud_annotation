@@ -83,7 +83,9 @@ class RVizCloudAnnotation
 
   void LoadCloud(const std::string & filename,const std::string & normal_source,PointXYZRGBNormalCloud & cloud);
 
-  void onSave(const std_msgs::String & filename_msg);
+  void onSave(const std_msgs::String & filename_msg) { Save(); }
+  void onAutosave(const ros::TimerEvent & event) { Save(); }
+  void Save();
 
   void onRestore(const std_msgs::String & filename_msg)
   {
@@ -266,6 +268,8 @@ class RVizCloudAnnotation
   ros::Publisher m_control_point_weight_max_weight_pub;
   uint32 m_control_point_weight_step;
   uint32 m_control_point_max_weight;
+
+  ros::Timer m_autosave_timer;
 
   std::string m_frame_id;
   float m_point_size;
