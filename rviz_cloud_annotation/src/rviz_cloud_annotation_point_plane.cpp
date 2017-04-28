@@ -24,7 +24,7 @@ void RVizCloudAnnotationPointsPointPlane::Clear()
 
 void RVizCloudAnnotationPointsPointPlane::RemoveLabel(const uint64 label_id,
                                                       BoolVector & touched_labels,
-                                                      BoolVector & touched_points)
+                                                      Uint64Set & touched_points)
 {
   Uint64Set seeds_set;
 
@@ -46,7 +46,7 @@ void RVizCloudAnnotationPointsPointPlane::RemoveLabel(const uint64 label_id,
 
       m_labels_assoc[i] = 0;
       m_last_generated_tot_dists[i] = 0.0;
-      touched_points[i] = true;
+      touched_points.insert(i);
     }
   }
 
@@ -58,10 +58,8 @@ void RVizCloudAnnotationPointsPointPlane::RemoveLabel(const uint64 label_id,
 
 void RVizCloudAnnotationPointsPointPlane::UpdateRegionGrowing(const Uint64Vector & seeds,
                                                               BoolVector & touched_labels,
-                                                              BoolVector & touched_points)
+                                                              Uint64Set & touched_points)
 {
-  touched_points.resize(m_cloud_size,false);
-
   Uint64Queue queue;
   BoolVector in_queue(m_cloud_size,false);
   for (uint64 i = 0; i < seeds.size(); i++)
@@ -69,7 +67,7 @@ void RVizCloudAnnotationPointsPointPlane::UpdateRegionGrowing(const Uint64Vector
     const uint64 first = seeds[i];
     queue.push(first);
     in_queue[first] = true;
-    touched_points[first] = true;
+    touched_points.insert(first);
   }
 
   if (!std::isfinite(m_multiplier))
@@ -108,7 +106,7 @@ void RVizCloudAnnotationPointsPointPlane::UpdateRegionGrowing(const Uint64Vector
 
       m_last_generated_tot_dists[next] = next_tot_dist;
       m_labels_assoc[next] = current_label;
-      touched_points[next] = true;
+      touched_points.insert(next);
 
       if (!in_queue[next])
       {

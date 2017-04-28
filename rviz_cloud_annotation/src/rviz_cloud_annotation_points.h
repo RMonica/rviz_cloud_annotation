@@ -154,11 +154,11 @@ class RVizCloudAnnotationPoints
   void UpdateLabelAssocAddedPlane(const uint64 added_index,
                                   const uint32 added_weight,
                                   BoolVector & touched,
-                                  BoolVector & touched_plane);
+                                  Uint64Set & touched_plane);
   void UpdateLabelAssocDeleted(const uint64 removed_index,BoolVector & touched_labels);
   void UpdateLabelAssocDeletedVector(const Uint64Vector & removed_indices,BoolVector & touched);
 
-  void UpdateMainWeightPlane(const BoolVector & touched_points,BoolVector & touched);
+  void UpdateMainWeightPlane(const Uint64Set & touched_points,BoolVector & touched);
   void RebuildMainWeightPlane(BoolVector & touched);
 
   uint64 InternalSetControlPoint(const uint64 point_id,

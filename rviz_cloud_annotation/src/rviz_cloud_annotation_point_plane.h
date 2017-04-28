@@ -33,10 +33,10 @@ class RVizCloudAnnotationPointsPointPlane
 
   void UpdateRegionGrowing(const Uint64Vector & seeds,
                            BoolVector & touched_labels,
-                           BoolVector & touched_points);
+                           Uint64Set & touched_points);
   void RemoveLabel(const uint64 label_id,
                    BoolVector & touched_labels,
-                   BoolVector & touched_points);
+                   Uint64Set & touched_points);
 
   void Clear();
 
