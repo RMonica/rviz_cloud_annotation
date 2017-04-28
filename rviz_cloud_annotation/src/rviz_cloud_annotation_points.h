@@ -73,6 +73,9 @@ class RVizCloudAnnotationPoints
 
   // returns the list of affected labels
   Uint64Vector SetControlPoint(const uint64 point_id,const uint32 weight_step,const uint64 label);
+  Uint64Vector SetControlPointVector(const Uint64Vector & ids,
+                                   const Uint32Vector & weight_steps,
+                                   const Uint64Vector & labels);
   Uint64Vector SetControlPoint(const CPData & control_point_data);
   Uint64Vector SetControlPointList(const CPDataVector & control_points_data,const uint64 label);
   Uint64Vector SetControlPointList(const CPDataVector & control_points_data);
@@ -148,6 +151,10 @@ class RVizCloudAnnotationPoints
   void UpdateLabelAssocAdded(const uint64 added_index,
                              const uint32 added_weight,
                              BoolVector & touched);
+  void UpdateLabelAssocAddedPlane(const uint64 added_index,
+                                  const uint32 added_weight,
+                                  BoolVector & touched,
+                                  BoolVector & touched_plane);
   void UpdateLabelAssocDeleted(const uint64 removed_index,BoolVector & touched_labels);
   void UpdateLabelAssocDeletedVector(const Uint64Vector & removed_indices,BoolVector & touched);
 

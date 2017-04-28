@@ -65,6 +65,25 @@ class RVizCloudAnnotationUndo
     uint32 m_next_weight_step;
   };
 
+  class SetControlPointVectorAction: public Action
+  {
+    public:
+    Uint64Vector Execute(RVizCloudAnnotationPoints & annotation) const;
+    Action::Ptr Inverse() const;
+    std::string GetDescription() const;
+
+    SetControlPointVectorAction(const Uint64Vector & idxs,
+                              const Uint64Vector & prev_labels,const Uint32Vector & prev_weight_steps,
+                              const Uint64Vector & next_labels,const Uint32Vector & next_weight_steps);
+
+    private:
+    Uint64Vector m_idxs;
+    Uint64Vector m_prev_labels;
+    Uint32Vector m_prev_weight_steps;
+    Uint64Vector m_next_labels;
+    Uint32Vector m_next_weight_steps;
+  };
+
   class SetNameForLabelAction: public Action
   {
     public:
@@ -137,6 +156,7 @@ class RVizCloudAnnotationUndo
   };
 
   Uint64Vector SetControlPoint(const uint64 idx,const uint32 weight_step,const uint32 next_label);
+  Uint64Vector SetControlPointVector(const Uint64Vector ids,const uint32 weight_step,const uint32 next_label);
   Uint64Vector Clear();
   Uint64Vector ClearLabel(const uint32 label);
   Uint64Vector SetNameForLabel(const uint32 label,const std::string & name);

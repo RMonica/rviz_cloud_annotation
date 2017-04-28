@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cmath>
 
+#define OPTIMIZE_BULK_ZERO_WEIGHT 1
+
 RVizCloudAnnotationPoints::RVizCloudAnnotationPoints(const uint64 cloud_size,
                                                      const uint32 weight_steps,
                                                      const PointNeighborhood::ConstPtr neighborhood)
@@ -45,6 +47,76 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::Clear()
   m_control_points_assoc.assign(m_cloud_size,0);
   m_labels_assoc.assign(m_cloud_size,0);
   m_last_generated_tot_dists.assign(m_cloud_size,0.0);
+
+  return result;
+}
+
+RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::SetControlPointVector(const Uint64Vector & ids,
+                                                                                       const Uint32Vector & weight_steps,
+                                                                                       const Uint64Vector & labels)
+{
+  for (uint64 i = 0; i < labels.size(); i++)
+    ExpandLabelsUntil(labels[i]);
+  BoolVector touched(GetMaxLabel() + 1,false);
+
+  BoolVector touched_points;
+
+  // call all the SetControlPoint s and merge the results
+  for (uint64 i = 0; i < ids.size(); i++)
+  {
+    const uint64 point_id = ids[i];
+    const uint64 label = labels[i];
+    const uint32 weight_step = weight_steps[i];
+
+    Uint64Vector touched_vec;
+#if OPTIMIZE_BULK_ZERO_WEIGHT
+    const uint64 prev_control_point_id = m_control_points_assoc[point_id];
+
+    if (weight_step == 0 && prev_control_point_id == 0 && label != 0)
+    {
+      const uint64 new_id = InternalSetControlPoint(point_id,weight_step,label);
+      touched_points.resize(m_cloud_size,false);
+      BoolVector touched2;
+      UpdateLabelAssocAddedPlane(new_id,weight_step,touched2,touched_points);
+      touched_vec = TouchedBoolVectorToExtLabel(touched2);
+    }
+    else
+    {
+      if (!touched_points.empty())
+      {
+        // flush
+        BoolVector touched2;
+        UpdateMainWeightPlane(touched_points,touched2);
+        const Uint64Vector touched_vec2 = TouchedBoolVectorToExtLabel(touched2);
+        for (uint64 h = 0; h < touched_vec2.size(); h++)
+          touched[touched_vec2[h]] = true;
+        touched_points.clear();
+      }
+
+      touched_vec = SetControlPoint(point_id,weight_step,label);
+    }
+#else
+    touched_vec = SetControlPoint(point_id,weight_step,label);
+#endif
+
+    for (uint64 h = 0; h < touched_vec.size(); h++)
+      touched[touched_vec[h]] = true;
+  }
+
+  if (!touched_points.empty()) // final flush
+  {
+    BoolVector touched2;
+    UpdateMainWeightPlane(touched_points,touched2);
+    const Uint64Vector touched_vec2 = TouchedBoolVectorToExtLabel(touched2);
+    for (uint64 h = 0; h < touched_vec2.size(); h++)
+      touched[touched_vec2[h]] = true;
+    touched_points.clear();
+  }
+
+  Uint64Vector result;
+  for (uint64 i = 0; i < touched.size(); i++)
+    if (touched[i])
+      result.push_back(i);
 
   return result;
 }
@@ -182,6 +254,8 @@ RVizCloudAnnotationPoints::Uint64Vector RVizCloudAnnotationPoints::GetLabelPoint
 void RVizCloudAnnotationPoints::UpdateMainWeightPlane(const BoolVector & touched_points,
                                                       BoolVector & touched)
 {
+  touched.resize(m_control_points.size(),false);
+
   for (uint64 i = 0; i < m_cloud_size; i++)
   {
     if (!touched_points[i])
@@ -273,9 +347,10 @@ void RVizCloudAnnotationPoints::RegenerateLabelAssoc(BoolVector & touched)
   RebuildMainWeightPlane(touched);
 }
 
-void RVizCloudAnnotationPoints::UpdateLabelAssocAdded(const uint64 added_index,
-                                                      const uint32 added_weight,
-                                                      BoolVector & touched)
+void RVizCloudAnnotationPoints::UpdateLabelAssocAddedPlane(const uint64 added_index,
+                                                           const uint32 added_weight,
+                                                           BoolVector & touched,
+                                                           BoolVector & touched_points)
 {
   touched.assign(m_control_points.size(),false);
   Uint64Vector seeds;
@@ -284,13 +359,19 @@ void RVizCloudAnnotationPoints::UpdateLabelAssocAdded(const uint64 added_index,
   const uint64 point_id = m_control_points[added_index - 1].point_id;
   seeds.push_back(point_id);
 
-  BoolVector touched_points(m_cloud_size,false);
-
   ExpandPointPlane(added_weight);
 
   PointPlane & plane = *(m_weight_steps_planes[added_weight]);
   plane.SetSeed(point_id,added_index);
   plane.UpdateRegionGrowing(seeds,touched,touched_points);
+}
+
+void RVizCloudAnnotationPoints::UpdateLabelAssocAdded(const uint64 added_index,
+                                                      const uint32 added_weight,
+                                                      BoolVector & touched)
+{
+  BoolVector touched_points(m_cloud_size,false);
+  UpdateLabelAssocAddedPlane(added_index,added_weight,touched,touched_points);
   UpdateMainWeightPlane(touched_points,touched);
 }
 

@@ -138,6 +138,9 @@ namespace rviz_cloud_annotation
 
       m_nh.param<std::string>(PARAM_NAME_GOTO_NEXT_UNUSED_TOPIC,param_string,PARAM_DEFAULT_GOTO_NEXT_UNUSED_TOPIC);
       m_goto_next_unused_pub = m_nh.advertise<std_msgs::Empty>(param_string,1);
+
+      m_nh.param<std::string>(PARAM_NAME_TOOL_TYPE_TOPIC,param_string,PARAM_DEFAULT_TOOL_TYPE_TOPIC);
+      m_tool_type_pub = m_nh.advertise<std_msgs::UInt32>(param_string,1,true);
     }
 
     QBoxLayout * main_layout = new QBoxLayout(QBoxLayout::TopToBottom,this);
@@ -311,6 +314,32 @@ namespace rviz_cloud_annotation
 
       void (QButtonGroup::* button_clicked_function_pointer)(int) = &QButtonGroup::buttonClicked;
       connect(m_toolbar_group,button_clicked_function_pointer,this,&QRVizCloudAnnotation::onSetEditMode);
+    }
+
+    {
+      QBoxLayout * tooltype_layout = new QBoxLayout(QBoxLayout::LeftToRight);
+      main_layout->addLayout(tooltype_layout);
+
+      m_tooltype_group = new QButtonGroup(this);
+
+      m_tool_single_button = new QPushButton("Point",this);
+      m_tool_single_button->setCheckable(true);
+      m_tool_single_button->setChecked(true);
+      tooltype_layout->addWidget(m_tool_single_button);
+      m_tooltype_group->addButton(m_tool_single_button,TOOL_TYPE_SINGLE_PICK);
+
+      m_tool_single_button = new QPushButton("Shallow rect",this);
+      m_tool_single_button->setCheckable(true);
+      tooltype_layout->addWidget(m_tool_single_button);
+      m_tooltype_group->addButton(m_tool_single_button,TOOL_TYPE_SHALLOW_SQUARE);
+
+      m_tool_single_button = new QPushButton("Deep rect",this);
+      m_tool_single_button->setCheckable(true);
+      tooltype_layout->addWidget(m_tool_single_button);
+      m_tooltype_group->addButton(m_tool_single_button,TOOL_TYPE_DEEP_SQUARE);
+
+      void (QButtonGroup::* button_clicked_function_pointer)(int) = &QButtonGroup::buttonClicked;
+      connect(m_tooltype_group,button_clicked_function_pointer,this,&QRVizCloudAnnotation::onSetToolType);
     }
 
     {
@@ -681,6 +710,13 @@ namespace rviz_cloud_annotation
   void QRVizCloudAnnotation::onSetEditMode(int edit_mode)
   {
     SetCurrentEditMode(edit_mode);
+  }
+
+  void QRVizCloudAnnotation::onSetToolType(int tool_type)
+  {
+    std_msgs::UInt32 msg;
+    msg.data = tool_type;
+    m_tool_type_pub.publish(msg);
   }
 
   void QRVizCloudAnnotation::SetCurrentEditMode(const uint64 mode)

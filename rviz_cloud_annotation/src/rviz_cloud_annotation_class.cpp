@@ -11,6 +11,12 @@
 // Boost
 #include <boost/date_time/posix_time/posix_time.hpp>
 
+// Eigen
+#include <Eigen/Dense>
+
+// ROS
+#include <eigen_conversions/eigen_msg.h>
+
 #define CLOUD_MARKER_NAME            "cloud"
 #define CONTROL_POINT_MARKER_PREFIX  "control_points_"
 #define LABEL_POINT_MARKER_PREFIX    "label_points_"
@@ -119,6 +125,9 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_cp_weight_scale_fraction = std::min<float>(1.0,std::max(0.0,param_double));
 
   m_nh.param<bool>(PARAM_NAME_ZERO_WEIGHT_CP_SHOW,m_show_zero_weight_control_points,PARAM_DEFAULT_ZERO_WEIGHT_CP_SHOW);
+
+  m_nh.param<std::string>(PARAM_NAME_RECT_SELECTION_TOPIC,param_string,PARAM_DEFAULT_RECT_SELECTION_TOPIC);
+  m_rect_selection_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onRectangleSelectionViewport,this);
 
   m_nh.param<std::string>(PARAM_NAME_SAVE_TOPIC,param_string,PARAM_DEFAULT_SAVE_TOPIC);
   m_save_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSave,this);
@@ -743,6 +752,28 @@ void RVizCloudAnnotation::SendUndoRedoState()
   m_undo_redo_state_pub.publish(msg);
 }
 
+void RVizCloudAnnotation::SendName()
+{
+  std::string name = m_annotation->GetNameForLabel(m_current_label);
+  std_msgs::String msg;
+  msg.data = name;
+  m_set_name_pub.publish(msg);
+}
+
+void RVizCloudAnnotation::SendPointCounts(const Uint64Vector & labels)
+{
+  const uint64 labels_size = labels.size();
+  std_msgs::UInt64MultiArray msg;
+  for (uint64 i = 0; i < labels_size; i++)
+  {
+    const uint64 label = labels[i];
+    const uint64 count = m_annotation->GetLabelPointCount(label);
+    msg.data.push_back(label);
+    msg.data.push_back(count);
+  }
+  m_point_count_update_pub.publish(msg);
+}
+
 void RVizCloudAnnotation::onUndo(const std_msgs::Empty &)
 {
   if (!m_undo_redo.IsUndoEnabled())
@@ -983,6 +1014,179 @@ void RVizCloudAnnotation::SendCloudMarker(const bool apply)
 
   if (apply)
     m_interactive_marker_server->applyChanges();
+}
+
+void RVizCloudAnnotation::SetCurrentLabel(const uint64 label)
+{
+  if (m_current_label == label)
+    return;
+
+  m_current_label = label;
+  ROS_INFO("rviz_cloud_annotation: label is now: %u",(unsigned int)(m_current_label));
+  SendName();
+  SendUndoRedoState();
+
+  std_msgs::UInt32 msg;
+  msg.data = label;
+  m_set_current_label_pub.publish(msg);
+}
+
+void RVizCloudAnnotation::onRectangleSelectionViewport(const rviz_cloud_annotation::RectangleSelectionViewport & msg)
+{
+  ROS_INFO("rviz_cloud_annotation: rectangle selection event received.");
+  const bool is_deep_selection = msg.is_deep_selection;
+
+  Eigen::Matrix4f projection_matrix;
+  for (uint32 y = 0; y < 4; y++)
+    for (uint32 x = 0; x < 4; x++)
+      projection_matrix(y,x) = msg.projection_matrix[x + y * 4];
+
+  const uint32 start_x = msg.start_x;
+  const uint32 start_y = msg.start_y;
+  const uint32 end_x = msg.end_x;
+  const uint32 end_y = msg.end_y;
+  const uint32 viewport_height = msg.viewport_height;
+  const uint32 viewport_width = msg.viewport_width;
+  const uint32 width = end_x - start_x;
+  const uint32 height = end_y - start_y;
+
+  const float focal_length = msg.focal_length;
+  const float point_size = m_point_size_multiplier * m_point_size;
+
+  Eigen::Affine3f camera_pose;
+  {
+    Eigen::Affine3d camera_pose_d;
+    tf::poseMsgToEigen(msg.camera_pose,camera_pose_d);
+    camera_pose = camera_pose_d.cast<float>();
+  }
+  const Eigen::Affine3f camera_pose_inv = camera_pose.inverse();
+
+  Eigen::Affine3f scale_matrix = Eigen::Affine3f::Identity();
+  scale_matrix(0,0) = viewport_width / 2.0;
+  scale_matrix(1,1) = viewport_height / -2.0; // y axis must be inverted
+  scale_matrix(1,3) = viewport_height; // y is now negative, so move back to positive
+
+  Eigen::Affine3f translation_matrix = Eigen::Affine3f::Identity();
+  translation_matrix.translation().x() = 1.0;
+  translation_matrix.translation().y() = 1.0;
+
+  const Eigen::Matrix4f prod_matrix = (scale_matrix *
+                                       translation_matrix *
+                                       projection_matrix *
+                                       camera_pose_inv).matrix();
+
+  const Uint64Vector ids = RectangleSelectionToIds(prod_matrix,camera_pose_inv,*m_cloud,
+                                                   start_x,start_y,width,height,
+                                                   point_size,focal_length,
+                                                   is_deep_selection);
+  ROS_INFO("rviz_cloud_annotation: rectangle selection selected %d points.",int(ids.size()));
+  VectorSelection(ids);
+}
+
+RVizCloudAnnotation::Uint64Vector RVizCloudAnnotation::RectangleSelectionToIds(const Eigen::Matrix4f prod_matrix,
+                                                                               const Eigen::Affine3f camera_pose_inv,
+                                                                               const PointXYZRGBNormalCloud & cloud,
+                                                                               const uint32 start_x,
+                                                                               const uint32 start_y,
+                                                                               const uint32 width,
+                                                                               const uint32 height,
+                                                                               const float point_size,
+                                                                               const float focal_length,
+                                                                               const bool is_deep_selection)
+{
+  Uint64Vector virtual_id_image(width * height,0);
+  FloatVector virtual_depth_image(width * height,0.0);
+
+  const uint64 cloud_size = cloud.size();
+  BoolVector selected_points(cloud_size,false);
+  for (uint64 i = 0; i < cloud_size; i++)
+  {
+    const PointXYZRGBNormal & ppt = cloud[i];
+    const Eigen::Vector3f ept(ppt.x,ppt.y,ppt.z);
+    const Eigen::Vector4f thpt = prod_matrix * ept.homogeneous();
+    if (thpt.w() < 1e-5)
+      continue;
+    const Eigen::Vector3f tpt = thpt.head<3>() / thpt.w();
+    const Eigen::Vector2i itpt = tpt.head<2>().cast<int>() - Eigen::Vector2i(start_x,start_y);
+    const float depth = -(camera_pose_inv * ept).z();
+    if (itpt.x() < 0 || itpt.y() < 0 || itpt.x() >= int(width) || itpt.y() >= int(height))
+      continue;
+    if (depth < 0.0)
+      continue; // behind the observer
+
+    if (is_deep_selection)
+    {
+      selected_points[i] = true;
+      continue;
+    }
+
+    // if not deep, then we must compute point size for occlusions
+    const float size_px = point_size * focal_length / depth;
+    const int32 window_px = std::max<int32>(1,size_px + 0.5) - 1;
+    if (window_px == 0)
+    {
+      const uint64 di = itpt.x() + itpt.y() * width;
+
+      if (virtual_id_image[di] == 0 || virtual_depth_image[di] > depth)
+      {
+        virtual_id_image[di] = i + 1;
+        virtual_depth_image[di] = depth;
+      }
+      continue;
+    }
+
+    for (int32 dy = -window_px; dy <= window_px; dy++)
+      for (int32 dx = -window_px; dx <= window_px; dx++)
+      {
+        const Eigen::Vector2i ditpt = itpt + Eigen::Vector2i(dx,dy);
+        if (ditpt.x() < 0 || ditpt.y() < 0 || ditpt.x() >= int(width) || ditpt.y() >= int(height))
+          continue;
+        const uint64 di = ditpt.x() + ditpt.y() * width;
+
+        if (virtual_id_image[di] == 0 || virtual_depth_image[di] > depth)
+        {
+          virtual_id_image[di] = i + 1;
+          virtual_depth_image[di] = depth;
+        }
+      }
+  }
+
+  if (!is_deep_selection)
+  {
+    for (uint64 i = 0; i < virtual_id_image.size(); i++)
+      if (virtual_id_image[i])
+        selected_points[virtual_id_image[i] - 1] = true;
+  }
+
+  Uint64Vector ids;
+  for (uint64 i = 0; i < cloud_size; i++)
+    if (selected_points[i])
+      ids.push_back(i);
+  return ids;
+}
+
+void RVizCloudAnnotation::VectorSelection(const Uint64Vector & ids)
+{
+  if (m_edit_mode == EDIT_MODE_CONTROL_POINT)
+  {
+    const Uint64Vector changed_labels = m_undo_redo.SetControlPointVector(ids,m_control_point_weight_step,m_current_label);
+    SendControlPointsMarker(changed_labels,true);
+    SendPointCounts(changed_labels);
+    SendUndoRedoState();
+    ROS_INFO("rviz_cloud_annotation: selection set %d points.",int(ids.size()));
+  }
+  else if (m_edit_mode == EDIT_MODE_ERASER)
+  {
+    const Uint64Vector changed_labels = m_undo_redo.SetControlPointVector(ids,0,0);
+    SendControlPointsMarker(changed_labels,true);
+    SendPointCounts(changed_labels);
+    SendUndoRedoState();
+    ROS_INFO("rviz_cloud_annotation: selection cleared %d points.",int(ids.size()));
+  }
+  else
+  {
+    ROS_WARN("rviz_cloud_annotation: invalid action %d for selection.",int(m_edit_mode));
+  }
 }
 
 std::string RVizCloudAnnotation::AppendTimestampBeforeExtension(const std::string & filename)

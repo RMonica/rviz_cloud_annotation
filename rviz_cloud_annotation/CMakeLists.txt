@@ -7,11 +7,14 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf
   visualization_msgs
+  geometry_msgs
+  eigen_conversions
   cmake_modules
   std_msgs
   rviz
 )
 
+find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED)
 find_package(PCL 1.8)
 
@@ -37,6 +40,7 @@ link_directories(${PCL_LIBRARY_DIRS})
 add_message_files(
   FILES
   UndoRedoState.msg
+  RectangleSelectionViewport.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -56,6 +60,7 @@ add_message_files(
 generate_messages(
   DEPENDENCIES
   std_msgs
+  geometry_msgs
 )
 
 ###################################
@@ -77,7 +82,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
-  ${Eigen_INCLUDE_DIRS}
+  ${Eigen3_INCLUDE_DIRS}
 )
 
 add_executable(rviz_cloud_annotation_node
@@ -98,7 +103,7 @@ add_dependencies(rviz_cloud_annotation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} 
 target_link_libraries(rviz_cloud_annotation_node
   ${PCL_LIBRARIES}
   ${Boost_LIBRARIES}
-  ${Eigen_LIBRARIES}
+  ${Eigen3_LIBRARIES}
   ${catkin_LIBRARIES}
   )
 
@@ -106,6 +111,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 add_library(rviz_cloud_annotation_plugin
   src/rviz_cloud_annotation_plugin.cpp
+  src/rviz_select_tool.cpp
 
   ${MAYBE_PCL_COMMON_COLORS}
 )
@@ -115,7 +121,7 @@ add_dependencies(rviz_cloud_annotation_plugin ${${PROJECT_NAME}_EXPORTED_TARGETS
 target_link_libraries(rviz_cloud_annotation_plugin
   ${PCL_LIBRARIES}
   ${Boost_LIBRARIES}
-  ${Eigen_LIBRARIES}
+  ${Eigen3_LIBRARIES}
   ${catkin_LIBRARIES}
   Qt5::Widgets
 )

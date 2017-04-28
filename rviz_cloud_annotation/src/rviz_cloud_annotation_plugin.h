@@ -47,6 +47,7 @@ namespace rviz_cloud_annotation
 
     private Q_SLOTS:
     void onSetEditMode(int mode);
+    void onSetToolType(int type);
 
     void onLabelButtonSelected(int id);
     void onPlusLabel();
@@ -149,11 +150,18 @@ namespace rviz_cloud_annotation
     ros::Publisher m_control_points_weight_pub;
     ros::Subscriber m_control_point_max_weight_sub;
 
+    ros::Publisher m_tool_type_pub;
+
     QPushButton * m_edit_none_button;
     QPushButton * m_edit_control_point_button;
     QPushButton * m_edit_eraser_button;
     QPushButton * m_edit_color_picker_button;
     QButtonGroup * m_toolbar_group;
+
+    QPushButton * m_tool_single_button;
+    QPushButton * m_tool_shallow_square_button;
+    QPushButton * m_tool_deep_square_button;
+    QButtonGroup * m_tooltype_group;
 
     QAction * m_prev_page_action;
     QAction * m_next_page_action;

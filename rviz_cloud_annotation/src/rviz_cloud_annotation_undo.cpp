@@ -13,6 +13,7 @@ typedef RVizCloudAnnotationUndo::ClearLabelAction ClearLabelAction;
 typedef RVizCloudAnnotationUndo::RestoreLabelAction RestoreLabelAction;
 typedef RVizCloudAnnotationUndo::ClearAction ClearAction;
 typedef RVizCloudAnnotationUndo::RestoreAction RestoreAction;
+typedef RVizCloudAnnotationUndo::SetControlPointVectorAction SetControlPointVectorAction;
 
 #define QUEUE_SIZE_SANITY (10000)
 
@@ -42,6 +43,28 @@ RVizCloudAnnotationUndo::Uint64Vector RVizCloudAnnotationUndo::SetControlPoint(c
     return Uint64Vector(); // nothing to do
 
   const Action::Ptr action(new SetControlPointAction(idx,prev_cp.label_id,prev_cp.weight_step_id,next_label,weight_step));
+  PushAction(action);
+  return action->Execute(*m_annotation);
+}
+
+RVizCloudAnnotationUndo::Uint64Vector RVizCloudAnnotationUndo::SetControlPointVector(const Uint64Vector ids,
+                                                                                     const uint32 weight_step,
+                                                                                     const uint32 next_label)
+{
+  const Uint32Vector weight_steps(ids.size(),weight_step);
+  const Uint64Vector next_labels(ids.size(),next_label);
+
+  Uint32Vector prev_weight_steps(ids.size(),0);
+  Uint64Vector prev_labels(ids.size(),0);
+
+  for (uint64 i = 0; i < ids.size(); i++)
+  {
+    const ControlPointData prev_cp = m_annotation->GetControlPointForPoint(ids[i]);
+    prev_weight_steps[i] = prev_cp.weight_step_id;
+    prev_labels[i] = prev_cp.label_id;
+  }
+
+  const Action::Ptr action(new SetControlPointVectorAction(ids,prev_labels,prev_weight_steps,next_labels,weight_steps));
   PushAction(action);
   return action->Execute(*m_annotation);
 }
@@ -178,6 +201,41 @@ SetControlPointAction::SetControlPointAction(const uint64 idx,const uint32 prev_
   m_next_label = next_label;
   m_prev_weight_step = prev_weight_step;
   m_next_weight_step = next_weight_step;
+}
+
+// -----
+
+RVizCloudAnnotationUndo::Uint64Vector SetControlPointVectorAction::Execute(RVizCloudAnnotationPoints & annotation) const
+{
+  return annotation.SetControlPointVector(m_idxs,m_next_weight_steps,m_next_labels);
+}
+
+Action::Ptr SetControlPointVectorAction::Inverse() const
+{
+  return Action::Ptr(new SetControlPointVectorAction(m_idxs,m_next_labels,m_next_weight_steps,
+                                                   m_prev_labels,m_prev_weight_steps));
+}
+
+std::string SetControlPointVectorAction::GetDescription() const
+{
+  std::ostringstream oss;
+  oss << "Change pts";
+  for (uint64 i = 0; i < m_idxs.size() && i < 3; i++)
+    oss << " " << m_idxs[i];
+  if (m_idxs.size() > 3)
+    oss << "...";
+  return oss.str();
+}
+
+SetControlPointVectorAction::SetControlPointVectorAction(const Uint64Vector & idxs,
+                          const Uint64Vector & prev_labels,const Uint32Vector & prev_weight_steps,
+                          const Uint64Vector & next_labels,const Uint32Vector & next_weight_steps)
+{
+  m_idxs = idxs;
+  m_prev_labels = prev_labels;
+  m_next_labels = next_labels;
+  m_prev_weight_steps = prev_weight_steps;
+  m_next_weight_steps = next_weight_steps;
 }
 
 // -----

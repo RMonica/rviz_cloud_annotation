@@ -10,6 +10,7 @@
 #include "point_neighborhood.h"
 #include "rviz_cloud_annotation_undo.h"
 #include <rviz_cloud_annotation/UndoRedoState.h>
+#include <rviz_cloud_annotation/RectangleSelectionViewport.h>
 
 // STL
 #include <stdint.h>
@@ -71,6 +72,7 @@ class RVizCloudAnnotation
   typedef std::vector<uint64> Uint64Vector;
   typedef std::vector<Uint64Vector> Uint64VectorVector;
   typedef std::vector<float> FloatVector;
+  typedef std::vector<bool> BoolVector;
 
   enum ControlPointVisual
   {
@@ -103,20 +105,20 @@ class RVizCloudAnnotation
   std::string GetClickType(const std::string & marker_name,uint64 & label_out) const;
   uint64 GetClickedPointId(const InteractiveMarkerFeedback & click_feedback,bool & ok);
 
-  void SetCurrentLabel(const uint64 label)
-  {
-    if (m_current_label == label)
-      return;
+  void onRectangleSelectionViewport(const rviz_cloud_annotation::RectangleSelectionViewport & msg);
+  void VectorSelection(const Uint64Vector & ids);
+  Uint64Vector RectangleSelectionToIds(const Eigen::Matrix4f proj_matrix,
+                                       const Eigen::Affine3f camera_pose_inv,
+                                       const PointXYZRGBNormalCloud & cloud,
+                                       const uint32 start_x,
+                                       const uint32 start_y,
+                                       const uint32 width,
+                                       const uint32 height,
+                                       const float point_size,
+                                       const float focal_length,
+                                       const bool is_deep_selection);
 
-    m_current_label = label;
-    ROS_INFO("rviz_cloud_annotation: label is now: %u",(unsigned int)(m_current_label));
-    SendName();
-    SendUndoRedoState();
-
-    std_msgs::UInt32 msg;
-    msg.data = label;
-    m_set_current_label_pub.publish(msg);
-  }
+  void SetCurrentLabel(const uint64 label);
 
   void SetEditMode(const uint64 new_edit_mode);
 
@@ -174,29 +176,11 @@ class RVizCloudAnnotation
   void onGotoFirst(const std_msgs::Empty &);
   void onGotoNextUnused(const std_msgs::Empty &);
 
-  void SendName()
-  {
-    std::string name = m_annotation->GetNameForLabel(m_current_label);
-    std_msgs::String msg;
-    msg.data = name;
-    m_set_name_pub.publish(msg);
-  }
+  void SendName();
 
   void SendUndoRedoState();
 
-  void SendPointCounts(const Uint64Vector & labels)
-  {
-    const uint64 labels_size = labels.size();
-    std_msgs::UInt64MultiArray msg;
-    for (uint64 i = 0; i < labels_size; i++)
-    {
-      const uint64 label = labels[i];
-      const uint64 count = m_annotation->GetLabelPointCount(label);
-      msg.data.push_back(label);
-      msg.data.push_back(count);
-    }
-    m_point_count_update_pub.publish(msg);
-  }
+  void SendPointCounts(const Uint64Vector & labels);
 
   Uint64Vector RangeUint64(const uint64 start,const uint64 end) const
   {
@@ -241,6 +225,8 @@ class RVizCloudAnnotation
 
   ros::Subscriber m_set_name_sub;
   ros::Publisher m_set_name_pub;
+
+  ros::Subscriber m_rect_selection_sub;
 
   ros::Subscriber m_save_sub;
   ros::Subscriber m_restore_sub;
