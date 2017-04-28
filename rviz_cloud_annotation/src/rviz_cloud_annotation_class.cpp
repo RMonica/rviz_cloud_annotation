@@ -778,6 +778,8 @@ void RVizCloudAnnotation::onUndo(const std_msgs::Empty &)
 {
   if (!m_undo_redo.IsUndoEnabled())
     return;
+
+  ROS_INFO("rviz_cloud_annotation: Undo.");
   const Uint64Vector changed = m_undo_redo.Undo();
   SendControlPointsMarker(changed,true);
   SendPointCounts(changed);
@@ -789,6 +791,8 @@ void RVizCloudAnnotation::onRedo(const std_msgs::Empty &)
 {
   if (!m_undo_redo.IsRedoEnabled())
     return;
+
+  ROS_INFO("rviz_cloud_annotation: Redo.");
   const Uint64Vector changed = m_undo_redo.Redo();
   SendControlPointsMarker(changed,true);
   SendPointCounts(changed);
@@ -1121,7 +1125,7 @@ RVizCloudAnnotation::Uint64Vector RVizCloudAnnotation::RectangleSelectionToIds(c
     }
 
     // if not deep, then we must compute point size for occlusions
-    const float size_px = point_size * focal_length / depth;
+    const float size_px = (point_size / 2.0) * focal_length / depth;
     const int32 window_px = std::max<int32>(1,size_px + 0.5) - 1;
     if (window_px == 0)
     {
