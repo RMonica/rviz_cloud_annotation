@@ -1113,22 +1113,28 @@ RVizCloudAnnotation::Uint64Vector RVizCloudAnnotation::RectangleSelectionToIds(c
     const Eigen::Vector3f tpt = thpt.head<3>() / thpt.w();
     const Eigen::Vector2i itpt = tpt.head<2>().cast<int>() - Eigen::Vector2i(start_x,start_y);
     const float depth = -(camera_pose_inv * ept).z();
-    if (itpt.x() < 0 || itpt.y() < 0 || itpt.x() >= int(width) || itpt.y() >= int(height))
-      continue;
     if (depth < 0.0)
       continue; // behind the observer
 
     if (is_deep_selection)
     {
+      if (itpt.x() < 0 || itpt.y() < 0 || itpt.x() >= int(width) || itpt.y() >= int(height))
+        continue;
       selected_points[i] = true;
       continue;
     }
 
     // if not deep, then we must compute point size for occlusions
-    const float size_px = (point_size / 2.0) * focal_length / depth;
-    const int32 window_px = std::max<int32>(1,size_px + 0.5) - 1;
+    const float size_px = (point_size / 4.0) * focal_length / depth;
+    const int32 window_px = std::max<int32>(0,size_px);
+    if (itpt.x() < -window_px || itpt.y() < -window_px ||
+        itpt.x() >= int(width) + window_px || itpt.y() >= int(height) + window_px)
+      continue;
+
     if (window_px == 0)
     {
+      if (itpt.x() < 0 || itpt.y() < 0 || itpt.x() >= int(width) || itpt.y() >= int(height))
+        continue;
       const uint64 di = itpt.x() + itpt.y() * width;
 
       if (virtual_id_image[di] == 0 || virtual_depth_image[di] > depth)
