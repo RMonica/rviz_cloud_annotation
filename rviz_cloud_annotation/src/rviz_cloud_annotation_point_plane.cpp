@@ -23,30 +23,48 @@ void RVizCloudAnnotationPointsPointPlane::Clear()
 }
 
 void RVizCloudAnnotationPointsPointPlane::RemoveLabel(const uint64 label_id,
+                                                      const uint64 point_id,
                                                       BoolVector & touched_labels,
                                                       Uint64Set & touched_points)
 {
   Uint64Set seeds_set;
 
-  for (uint64 i = 0; i < m_cloud_size; i++)
+  Uint64Queue queue;
+  queue.push(point_id);
+
+  m_labels_assoc[point_id] = 0;
+  m_last_generated_tot_dists[point_id] = 0.0;
+  touched_points.insert(point_id);
+
+  while (!queue.empty())
   {
-    if (m_labels_assoc[i] == label_id)
+    const uint64 curr_point_id = queue.front();
+    queue.pop();
+
+    const float * neigh_dists;
+    const float * neigh_tot_dists;
+    const uint64 * neighs;
+    const uint64 neighs_size =
+      m_point_neighborhood.GetNeighborhoodAsPointer(curr_point_id,neighs,neigh_tot_dists,neigh_dists);
+
+    for (uint64 h = 0; h < neighs_size; h++)
     {
-      const float * neigh_dists;
-      const float * neigh_tot_dists;
-      const uint64 * neighs;
-      const uint64 neighs_size = m_point_neighborhood.GetNeigborhoodAsPointer(i,neighs,neigh_tot_dists,neigh_dists);
+      const uint64 next_point_id = neighs[h];
 
-      for (uint64 h = 0; h < neighs_size; h++)
+      const uint32 label = m_labels_assoc[next_point_id];
+      if (label == 0)
+        continue;
+
+      if (label != label_id)
+        seeds_set.insert(next_point_id);
+      if (label == label_id)
       {
-        const uint32 label = m_labels_assoc[neighs[h]];
-        if (label != 0 && label != label_id)
-          seeds_set.insert(neighs[h]);
-      }
+        queue.push(next_point_id);
 
-      m_labels_assoc[i] = 0;
-      m_last_generated_tot_dists[i] = 0.0;
-      touched_points.insert(i);
+        m_labels_assoc[next_point_id] = 0;
+        m_last_generated_tot_dists[next_point_id] = 0.0;
+        touched_points.insert(next_point_id);
+      }
     }
   }
 
@@ -85,7 +103,7 @@ void RVizCloudAnnotationPointsPointPlane::UpdateRegionGrowing(const Uint64Vector
     const float * neigh_dists;
     const float * neigh_tot_dists;
     const uint64 * neighs;
-    const uint64 neighs_size = m_point_neighborhood.GetNeigborhoodAsPointer(current,neighs,neigh_tot_dists,neigh_dists);
+    const uint64 neighs_size = m_point_neighborhood.GetNeighborhoodAsPointer(current,neighs,neigh_tot_dists,neigh_dists);
 
     for (uint64 i = 0; i < neighs_size; i++)
     {

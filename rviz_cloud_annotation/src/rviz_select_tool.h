@@ -6,11 +6,15 @@
 
 #include <ros/ros.h>
 #include <std_msgs/UInt32.h>
+#include <std_msgs/Empty.h>
 #include <rviz/tool.h>
 
 namespace Ogre
 {
   class Viewport;
+  class Rectangle2D;
+  class SceneNode;
+  class ManualObject;
 }
 
 namespace rviz
@@ -28,6 +32,15 @@ namespace rviz_cloud_annotation
     public:
     typedef int32_t int32;
     typedef uint32_t uint32;
+    typedef std::vector<float> FloatVector;
+
+    struct Coords2D
+    {
+      int32 x;
+      int32 y;
+      Coords2D(const int32 px,const int32 py): x(px), y(py) {}
+    };
+    typedef std::vector<Coords2D> Coords2DVector;
 
     AnnotationSelectionTool();
     virtual ~AnnotationSelectionTool();
@@ -44,14 +57,26 @@ namespace rviz_cloud_annotation
 
     private:
 
-    void SendViewportData(const int32 start_x,const int32 start_y,
-                          const int32 end_x,const int32 end_y,
+    void SendViewportPolylineData(const Ogre::Viewport * const viewport,
+                                  const Coords2DVector & polyline);
+
+    void SendViewportData(const int32 start_x, const int32 start_y,
+                          const int32 end_x, const int32 end_y,
                           const Ogre::Viewport * const viewport);
 
     void onSetEditMode(const std_msgs::UInt32 & mode);
     void onSetToolType(const std_msgs::UInt32 & type);
 
     void UpdateCursor();
+
+    void StartRectangleSelection(const int32 start_x,const int32 start_y,Ogre::Viewport * viewport);
+    void InitRectangleSelection();
+
+    void StartPolylineSelection(const int32 start_x,const int32 start_y,Ogre::Viewport * viewport);
+    void InitPolylineSelection();
+    void UpdatePolylineSelection();
+
+    void ClearSelection();
 
     rviz::MoveTool * m_move_tool;
     rviz::InteractionTool * m_interaction_tool;
@@ -64,13 +89,25 @@ namespace rviz_cloud_annotation
     ros::Publisher m_annotation_selection_pub;
     ros::Subscriber m_on_set_mode_sub;
     ros::Subscriber m_on_set_tool_type_sub;
+    ros::Publisher m_toggle_none_pub;
 
     bool m_selecting;
     int32 m_sel_start_x;
     int32 m_sel_start_y;
+    int32 m_sel_end_x;
+    int32 m_sel_end_y;
 
-    bool m_moving;
+    bool m_polyline_selecting;
+    bool m_polyline_self_intersect;
+    Coords2DVector m_sel_polyline;
+
     bool m_active;
+
+    Ogre::Rectangle2D * m_selection_rectangle;
+    Ogre::ManualObject * m_selection_polyline;
+    Ogre::SceneNode * m_selection_rectangle_node;
+    Ogre::SceneNode * m_selection_polyline_node;
+    Ogre::Viewport * m_selection_viewport;
   };
 
 }

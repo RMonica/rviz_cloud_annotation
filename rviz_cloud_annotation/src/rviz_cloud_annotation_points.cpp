@@ -352,10 +352,11 @@ void RVizCloudAnnotationPoints::UpdateLabelAssocDeletedVector(const Uint64Vector
     const uint32 removed_weight = m_control_points[removed_index - 1].weight_step_id;
     if (!m_weight_steps_planes[removed_weight])
       return;
+    const uint64 point_id = m_control_points[removed_index - 1].point_id;
 
     PointPlane & plane = *(m_weight_steps_planes[removed_weight]);
 
-    plane.RemoveLabel(removed_index,touched_labels,touched_points);
+    plane.RemoveLabel(removed_index,point_id,touched_labels,touched_points);
   }
 
   UpdateMainWeightPlane(touched_points,touched_labels);

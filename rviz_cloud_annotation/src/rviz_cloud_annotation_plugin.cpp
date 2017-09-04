@@ -328,15 +328,20 @@ namespace rviz_cloud_annotation
       tooltype_layout->addWidget(m_tool_single_button);
       m_tooltype_group->addButton(m_tool_single_button,TOOL_TYPE_SINGLE_PICK);
 
-      m_tool_single_button = new QPushButton("Shallow rect",this);
-      m_tool_single_button->setCheckable(true);
-      tooltype_layout->addWidget(m_tool_single_button);
-      m_tooltype_group->addButton(m_tool_single_button,TOOL_TYPE_SHALLOW_SQUARE);
+      m_tool_shallow_square_button = new QPushButton("Shallow rect",this);
+      m_tool_shallow_square_button->setCheckable(true);
+      tooltype_layout->addWidget(m_tool_shallow_square_button);
+      m_tooltype_group->addButton(m_tool_shallow_square_button,TOOL_TYPE_SHALLOW_SQUARE);
 
-      m_tool_single_button = new QPushButton("Deep rect",this);
-      m_tool_single_button->setCheckable(true);
-      tooltype_layout->addWidget(m_tool_single_button);
-      m_tooltype_group->addButton(m_tool_single_button,TOOL_TYPE_DEEP_SQUARE);
+      m_tool_deep_square_button = new QPushButton("Deep rect",this);
+      m_tool_deep_square_button->setCheckable(true);
+      tooltype_layout->addWidget(m_tool_deep_square_button);
+      m_tooltype_group->addButton(m_tool_deep_square_button,TOOL_TYPE_DEEP_SQUARE);
+
+      m_tool_shallow_poly_button = new QPushButton("Polyline",this);
+      m_tool_shallow_poly_button->setCheckable(true);
+      tooltype_layout->addWidget(m_tool_shallow_poly_button);
+      m_tooltype_group->addButton(m_tool_shallow_poly_button,TOOL_TYPE_SHALLOW_POLY);
 
       void (QButtonGroup::* button_clicked_function_pointer)(int) = &QButtonGroup::buttonClicked;
       connect(m_tooltype_group,button_clicked_function_pointer,this,&QRVizCloudAnnotation::onSetToolType);

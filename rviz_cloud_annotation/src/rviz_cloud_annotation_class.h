@@ -74,6 +74,21 @@ class RVizCloudAnnotation
   typedef std::vector<float> FloatVector;
   typedef std::vector<bool> BoolVector;
 
+  struct Int32PolyTriangle
+  {
+    int32 x[3];
+    int32 y[3];
+    Int32PolyTriangle(int32 x1,int32 y1,int32 x2,int32 y2,int32 x3,int32 y3)
+    {
+      x[0] = x1; x[1] = x2; x[2] = x3;
+      y[0] = y1; y[1] = y2; y[2] = y3;
+    }
+
+    // -1: inside 1: outside 0: on border
+    int32 Contains(const int32 x,const int32 y) const;
+  };
+  typedef std::vector<Int32PolyTriangle> Int32PolyTriangleVector;
+
   enum ControlPointVisual
   {
     CONTROL_POINT_VISUAL_SPHERE,
@@ -114,6 +129,7 @@ class RVizCloudAnnotation
                                        const uint32 start_y,
                                        const uint32 width,
                                        const uint32 height,
+                                       const Int32PolyTriangleVector tri_cond,
                                        const float point_size,
                                        const float focal_length,
                                        const bool is_deep_selection);
@@ -154,6 +170,14 @@ class RVizCloudAnnotation
   void onSetEditMode(const std_msgs::UInt32 & msg)
   {
     SetEditMode(msg.data);
+  }
+
+  void onToggleNoneMode(const std_msgs::Empty & msg)
+  {
+    if ((m_edit_mode == EDIT_MODE_NONE) && (m_prev_edit_mode != EDIT_MODE_NONE))
+      SetEditMode(m_prev_edit_mode);
+    else if (m_edit_mode != EDIT_MODE_NONE)
+      SetEditMode(EDIT_MODE_NONE);
   }
 
   void onSetName(const std_msgs::String & msg)
@@ -218,6 +242,7 @@ class RVizCloudAnnotation
   KdTree::Ptr m_kdtree;
 
   ros::Subscriber m_set_edit_mode_sub;
+  ros::Subscriber m_toggle_none_sub;
   ros::Subscriber m_set_current_label_sub;
 
   ros::Publisher m_set_edit_mode_pub;
@@ -275,6 +300,7 @@ class RVizCloudAnnotation
 
   uint64 m_current_label;
   uint64 m_edit_mode;
+  uint64 m_prev_edit_mode;
 
   PointNeighborhood::ConstPtr m_point_neighborhood;
 

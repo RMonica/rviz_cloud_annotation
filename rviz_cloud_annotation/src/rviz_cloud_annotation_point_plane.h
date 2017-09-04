@@ -35,6 +35,7 @@ class RVizCloudAnnotationPointsPointPlane
                            BoolVector & touched_labels,
                            Uint64Set & touched_points);
   void RemoveLabel(const uint64 label_id,
+                   const uint64 point_id,
                    BoolVector & touched_labels,
                    Uint64Set & touched_points);
 

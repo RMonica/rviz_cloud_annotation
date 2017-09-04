@@ -157,6 +157,9 @@
 #define PARAM_NAME_TOOL_TYPE_TOPIC            "rviz_cloud_annotation/tool_type_topic"
 #define PARAM_DEFAULT_TOOL_TYPE_TOPIC         "/rviz_cloud_annotation/tool_type"
 
+#define PARAM_NAME_TOGGLE_NONE_TOPIC       "rviz_cloud_annotation/toggle_none_topic"
+#define PARAM_DEFAULT_TOGGLE_NONE_TOPIC    "/rviz_cloud_annotation/toggle_none"
+
 // parameters for smart labeling
   // neighborhood graph distance
 #define PARAM_NAME_NEIGH_SEARCH_DISTANCE      "neighborhood_search_distance" // DEPRECATED
@@ -199,7 +202,8 @@
 #define TOOL_TYPE_SINGLE_PICK                 (0)
 #define TOOL_TYPE_DEEP_SQUARE                 (1)
 #define TOOL_TYPE_SHALLOW_SQUARE              (2)
-#define TOOL_TYPE_MAX                         (3)
+#define TOOL_TYPE_SHALLOW_POLY                (3)
+#define TOOL_TYPE_MAX                         (4)
 
 #define POINT_SIZE_CHANGE_BIGGER              (1)
 #define POINT_SIZE_CHANGE_SMALLER             (-1)

@@ -161,6 +161,7 @@ namespace rviz_cloud_annotation
     QPushButton * m_tool_single_button;
     QPushButton * m_tool_shallow_square_button;
     QPushButton * m_tool_deep_square_button;
+    QPushButton * m_tool_shallow_poly_button;
     QButtonGroup * m_tooltype_group;
 
     QAction * m_prev_page_action;

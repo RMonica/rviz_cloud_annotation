@@ -141,6 +141,9 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
   m_nh.param<std::string>(PARAM_NAME_SET_EDIT_MODE_TOPIC,param_string,PARAM_DEFAULT_SET_EDIT_MODE_TOPIC);
   m_set_edit_mode_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetEditMode,this);
 
+  m_nh.param<std::string>(PARAM_NAME_TOGGLE_NONE_TOPIC,param_string,PARAM_DEFAULT_TOGGLE_NONE_TOPIC);
+  m_toggle_none_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onToggleNoneMode,this);
+
   m_nh.param<std::string>(PARAM_NAME_SET_CURRENT_LABEL_TOPIC,param_string,PARAM_DEFAULT_SET_CURRENT_LABEL_TOPIC);
   m_set_current_label_sub = m_nh.subscribe(param_string,1,&RVizCloudAnnotation::onSetCurrentLabel,this);
 
@@ -215,6 +218,7 @@ RVizCloudAnnotation::RVizCloudAnnotation(ros::NodeHandle & nh): m_nh(nh)
 
   m_current_label = 1;
   m_edit_mode = EDIT_MODE_NONE;
+  m_prev_edit_mode = EDIT_MODE_NONE;
 
   m_point_size_multiplier = 1.0;
 
@@ -611,6 +615,8 @@ void RVizCloudAnnotation::SetEditMode(const uint64 new_edit_mode)
 
   ROS_INFO("rviz_cloud_annotation: edit mode is now: %s",info_string);
 
+  if ((m_edit_mode == EDIT_MODE_NONE) || (new_edit_mode == EDIT_MODE_NONE))
+    m_prev_edit_mode = m_edit_mode; // there must be at least one EDIT_MODE_NONE between current and prev
   m_edit_mode = new_edit_mode;
 
   std_msgs::UInt32 msg;
@@ -1079,12 +1085,63 @@ void RVizCloudAnnotation::onRectangleSelectionViewport(const rviz_cloud_annotati
                                        projection_matrix *
                                        camera_pose_inv).matrix();
 
+  Int32PolyTriangleVector tri_cond;
+  if (!msg.polyline_x.empty())
+  {
+    if (msg.polyline_x.size() < 3 || msg.polyline_x.size() != msg.polyline_y.size())
+    {
+      ROS_WARN("rviz_cloud_annotation: rectangle selection received invalid polyline: ignored.");
+      return;
+    }
+
+    for (uint64 i = 2; i < msg.polyline_x.size(); i++)
+    {
+      Int32PolyTriangle tri(msg.polyline_x[0],msg.polyline_y[0],
+                        msg.polyline_x[i - 1],msg.polyline_y[i - 1],
+                        msg.polyline_x[i],msg.polyline_y[i]);
+      tri_cond.push_back(tri);
+    }
+  }
+
   const Uint64Vector ids = RectangleSelectionToIds(prod_matrix,camera_pose_inv,*m_cloud,
                                                    start_x,start_y,width,height,
+                                                   tri_cond,
                                                    point_size,focal_length,
                                                    is_deep_selection);
   ROS_INFO("rviz_cloud_annotation: rectangle selection selected %d points.",int(ids.size()));
   VectorSelection(ids);
+}
+
+RVizCloudAnnotation::int32 RVizCloudAnnotation::Int32PolyTriangle::Contains(const int32 px,const int32 py) const
+{
+  bool clockwise = false;
+
+  for (uint64 i = 0; i < 3; i++)
+  {
+    const uint64 i1 = (i + 1) % 3;
+    const uint64 i2 = (i + 2) % 3;
+    const Eigen::Vector2i normal = Eigen::Vector2i(-y[i1] + y[i],x[i1] - x[i]);
+    if (normal == Eigen::Vector2i::Zero())
+      return 1; // degenerate
+
+    const int32 dot1 = Eigen::Vector2i(x[i2] - x[i],y[i2] - y[i]).dot(normal);
+    if (i == 0)
+      clockwise = (dot1 < 0);
+
+    const int32 dotp1 = Eigen::Vector2i(px - x[i],py - y[i]).dot(normal);
+    if (!dot1)
+      return 1; // degenerate
+    if (!dotp1)
+    {
+      if (i != 1 && (clockwise == (i == 0)))
+        return 1; // point on first edge is outside
+    }
+
+    if ((dotp1 > 0) != (dot1 > 0))
+      return 1; // outside the triangle
+  }
+
+  return -1;
 }
 
 RVizCloudAnnotation::Uint64Vector RVizCloudAnnotation::RectangleSelectionToIds(const Eigen::Matrix4f prod_matrix,
@@ -1094,12 +1151,32 @@ RVizCloudAnnotation::Uint64Vector RVizCloudAnnotation::RectangleSelectionToIds(c
                                                                                const uint32 start_y,
                                                                                const uint32 width,
                                                                                const uint32 height,
+                                                                               const Int32PolyTriangleVector tri_cond,
                                                                                const float point_size,
                                                                                const float focal_length,
                                                                                const bool is_deep_selection)
 {
   Uint64Vector virtual_id_image(width * height,0);
   FloatVector virtual_depth_image(width * height,0.0);
+
+  BoolVector virtual_image_mask(width * height,tri_cond.empty()); // if empty, all is true
+  if (!tri_cond.empty())
+  {
+    for (uint32 y = 0; y < height; y++)
+      for (uint32 x = 0; x < width; x++)
+      {
+        uint32 found = 0;
+        for (uint64 i = 0; i < tri_cond.size(); i++)
+        {
+          const Int32PolyTriangle & tri = tri_cond[i];
+          const int32 contains = tri.Contains(x + start_x,y + start_y);
+          if (contains <= 0)
+            found += 1; // inside
+        }
+
+        virtual_image_mask[y * width + x] = (found % 2);
+      }
+  }
 
   const uint64 cloud_size = cloud.size();
   BoolVector selected_points(cloud_size,false);
@@ -1120,6 +1197,8 @@ RVizCloudAnnotation::Uint64Vector RVizCloudAnnotation::RectangleSelectionToIds(c
     {
       if (itpt.x() < 0 || itpt.y() < 0 || itpt.x() >= int(width) || itpt.y() >= int(height))
         continue;
+      if (!virtual_image_mask[itpt.x() + itpt.y() * width])
+        continue;
       selected_points[i] = true;
       continue;
     }
@@ -1136,6 +1215,8 @@ RVizCloudAnnotation::Uint64Vector RVizCloudAnnotation::RectangleSelectionToIds(c
       if (itpt.x() < 0 || itpt.y() < 0 || itpt.x() >= int(width) || itpt.y() >= int(height))
         continue;
       const uint64 di = itpt.x() + itpt.y() * width;
+      if (!virtual_image_mask[di])
+        continue;
 
       if (virtual_id_image[di] == 0 || virtual_depth_image[di] > depth)
       {
@@ -1152,6 +1233,8 @@ RVizCloudAnnotation::Uint64Vector RVizCloudAnnotation::RectangleSelectionToIds(c
         if (ditpt.x() < 0 || ditpt.y() < 0 || ditpt.x() >= int(width) || ditpt.y() >= int(height))
           continue;
         const uint64 di = ditpt.x() + ditpt.y() * width;
+        if (!virtual_image_mask[di])
+          continue;
 
         if (virtual_id_image[di] == 0 || virtual_depth_image[di] > depth)
         {
@@ -1179,7 +1262,7 @@ void RVizCloudAnnotation::VectorSelection(const Uint64Vector & ids)
 {
   if (m_edit_mode == EDIT_MODE_CONTROL_POINT)
   {
-    const Uint64Vector changed_labels = m_undo_redo.SetControlPointVector(ids,m_control_point_weight_step,m_current_label);
+    const Uint64Vector changed_labels = m_undo_redo.SetControlPointVector(ids,0,m_current_label);
     SendControlPointsMarker(changed_labels,true);
     SendPointCounts(changed_labels);
     SendUndoRedoState();

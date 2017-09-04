@@ -58,7 +58,7 @@ class PointNeighborhood
 
   float TotalDistance(const PointXYZRGBNormal & a,const PointXYZRGBNormal & b,const Conf & conf) const;
 
-  uint64 GetNeigborhoodAsPointer(const uint64 i,const uint64 * & neighbors,
+  uint64 GetNeighborhoodAsPointer(const uint64 i,const uint64 * & neighbors,
                                  const float * & total_dists,const float * & position_dists) const
   {
     neighbors = m_index[i].neighbors;
