@@ -4,9 +4,9 @@
   <version>0.0.0</version>
   <description>The rviz_cloud_annotation package</description>
 
-  <maintainer email="rmonica@todo.todo">RMonica</maintainer>
+  <maintainer email="rmonica@ce.unipr.it">RMonica</maintainer>
 
-  <license>TODO</license>
+  <license>BSD-3-Clause</license>
 
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>interactive_markers</build_depend>
