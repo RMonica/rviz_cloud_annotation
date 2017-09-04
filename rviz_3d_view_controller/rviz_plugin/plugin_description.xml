@@ -1,0 +1,7 @@
+<library path="librviz_3d_view_controller">
+  <class name="rviz_3d_view_controller/Orbit3D" type="rviz_3d_view_controller::Orbit3DViewController" base_class_type="rviz::ViewController">
+    <description>
+      View controller with three degrees of freedom and a pivot.
+    </description>
+  </class>
+</library>
