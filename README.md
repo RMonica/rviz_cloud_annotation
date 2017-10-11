@@ -11,6 +11,10 @@ In addition to rectangular and polyline selection, the tool provides assisted an
 
 The standalone package `rviz_3d_view_controller` contains the Orbit3D View Controller plugin. The interface is similar to the default Orbit plugin, but it allows true 6DOF movement in 3D space.
 
+### Related publication
+
+- R. Monica, J. Aleotti, M. Zillich, M. Vincze, Multi-Label Point Cloud Annotation by Selection of Sparse Control Points, International Conference on 3D Vision (3DV), Qingdao, China, October 10th-12th 2017
+
 ### Installation
 
 System requirements:
@@ -137,4 +141,4 @@ The weight system allows for the creation of "weaker" control points, which can 
 - `rviz_cloud_annotation/color_columns_per_page` (int): labels per row in the panel plugin.
 - `rviz_cloud_annotation/color_rows_per_page` (int): labels per column in the panel plugin.
 
-2017 09 04
+2017 10 11
