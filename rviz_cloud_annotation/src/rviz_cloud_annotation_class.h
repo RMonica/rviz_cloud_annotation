@@ -244,6 +244,11 @@ class RVizCloudAnnotation
     return result;
   }
 
+  float NANToZero(const float a)
+  {
+    return std::isfinite(a) ? a : 0.0;
+  }
+
   void SendCloudMarker(const bool apply);
 
   void ClearControlPointsMarker(const Uint64Vector & indices,const bool apply);

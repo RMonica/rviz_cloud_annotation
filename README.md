@@ -19,9 +19,9 @@ The standalone package `rviz_3d_view_controller` contains the Orbit3D View Contr
 
 System requirements:
 
-- ROS (Kinetic, Lunar)
+- ROS (Kinetic, Lunar, Melodic)
 - Point Cloud Library (PCL) 1.7.2 or above
-- GPU graphic acceleration is recommended
+- GPU graphics acceleration is recommended
 
 This repository contains ROS packages for the catkin build system. Place them into your workspace and recompile.
 
@@ -29,6 +29,7 @@ This repository contains ROS packages for the catkin build system. Place them in
 Catkin compiles the workspace in debug mode by default. Try enabling optimization. Example commands:
 
 `catkin_make -DCMAKE_BUILD_TYPE=RelWithDebInfo`
+
 `catkin build --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo`
 
 **Note:**  

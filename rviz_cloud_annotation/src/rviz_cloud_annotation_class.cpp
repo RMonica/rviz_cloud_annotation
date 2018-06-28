@@ -388,9 +388,9 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
   {
     const PointXYZRGBNormal & pt = cloud[labels[i]];
 
-    cloud_marker.points[i].x = pt.x + pt.normal_x * normal_mult;
-    cloud_marker.points[i].y = pt.y + pt.normal_y * normal_mult;
-    cloud_marker.points[i].z = pt.z + pt.normal_z * normal_mult;
+    cloud_marker.points[i].x = pt.x + NANToZero(pt.normal_x) * normal_mult;
+    cloud_marker.points[i].y = pt.y + NANToZero(pt.normal_y) * normal_mult;
+    cloud_marker.points[i].z = pt.z + NANToZero(pt.normal_z) * normal_mult;
   }
 
   if (m_view_cloud && m_show_points_back_labels)
@@ -401,9 +401,9 @@ RVizCloudAnnotation::InteractiveMarker RVizCloudAnnotation::LabelsToMarker(
     {
       const PointXYZRGBNormal & pt = cloud[labels[i]];
 
-      cloud_marker.points[labels_size + i].x = pt.x - pt.normal_x * normal_mult; // point on the back
-      cloud_marker.points[labels_size + i].y = pt.y - pt.normal_y * normal_mult;
-      cloud_marker.points[labels_size + i].z = pt.z - pt.normal_z * normal_mult;
+      cloud_marker.points[labels_size + i].x = pt.x - NANToZero(pt.normal_x) * normal_mult; // point on the back
+      cloud_marker.points[labels_size + i].y = pt.y - NANToZero(pt.normal_y) * normal_mult;
+      cloud_marker.points[labels_size + i].z = pt.z - NANToZero(pt.normal_z) * normal_mult;
     }
   }
 
