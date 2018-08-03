@@ -6,7 +6,7 @@
 
     <param name="annotation_read_filename" type="string" value="$(find rviz_cloud_annotation)/data/example.ann" />
     <param name="annotation_write_filename" type="string" value="$(find rviz_cloud_annotation)/data/example.ann" />
-    <param name="annotation_cloud" type="string" value="$(find rviz_cloud_annotation)/data/example.pcd" />
+    <param name="annotation_cloud" type="string" value="$(find rviz_cloud_annotation)/data/example_annotated.pcd" />
     <param name="label_names_filename" type="string" value="$(find rviz_cloud_annotation)/data/example.txt" />
 
     <param name="label_size" type="double" value="0.002" />
