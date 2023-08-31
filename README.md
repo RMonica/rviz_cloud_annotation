@@ -11,6 +11,8 @@ In addition to rectangular and polyline selection, the tool provides assisted an
 
 The standalone package `rviz_3d_view_controller` contains the Orbit3D View Controller plugin. The interface is similar to the default Orbit plugin, but it allows true 6DOF movement in 3D space.
 
+**A new version upgraded to ROS 2 (Humble) has been published [here](https://github.com/RMonica/rviz2_cloud_annotation).**
+
 ### Related publication
 
 - R. Monica, J. Aleotti, M. Zillich, M. Vincze, Multi-Label Point Cloud Annotation by Selection of Sparse Control Points, International Conference on 3D Vision (3DV), Qingdao, China, October 10th-12th 2017
